@@ -213,6 +213,7 @@ const TOOLS = {
       return result.status === 0;
     },
     perProject: true,
+    optional: true,
   },
 
 };
@@ -255,7 +256,8 @@ async function main() {
     const parts = [`  ${icon} ${id.padEnd(10)} ${tool.name} - ${tool.description}`];
     if (missingDeps.length) parts.push(`\x1b[33m(needs: ${missingDeps.join(', ')})\x1b[0m`);
     if (tool.recommended) parts.push('\x1b[36m[recommended]\x1b[0m');
-    if (tool.perProject) parts.push('\x1b[90m[per-project]\x1b[0m');
+    if (tool.optional) parts.push('\x1b[90m[optional]\x1b[0m');
+    else if (tool.perProject) parts.push('\x1b[90m[per-project]\x1b[0m');
     log(parts.join(' '));
   }
 
@@ -263,10 +265,14 @@ async function main() {
 
   // 3. Determine what to install
   const notInstalled = Object.entries(TOOLS)
-    .filter(([id]) => !status[id].installed)
+    .filter(([id]) => !status[id].installed && !TOOLS[id].optional)
     .map(([id]) => id);
 
-  if (notInstalled.length === 0) {
+  const notInstalledOptional = Object.entries(TOOLS)
+    .filter(([id]) => !status[id].installed && TOOLS[id].optional)
+    .map(([id]) => id);
+
+  if (notInstalled.length === 0 && notInstalledOptional.length === 0) {
     log('All tools are already installed!');
     return;
   }
@@ -277,13 +283,17 @@ async function main() {
     // --install <tool-name>: install a specific tool
     selected = [installTarget];
   } else if (nonInteractive) {
-    // --non-interactive: install all standard tools without prompting
+    // --non-interactive: install all standard tools without prompting (excludes optional)
     selected = notInstalled;
   } else {
     // Interactive mode
     const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-    log(`Available: ${notInstalled.join(', ')}`);
+    const available = [...notInstalled, ...notInstalledOptional];
+    log(`Available: ${available.join(', ')}`);
+    if (notInstalledOptional.length) {
+      log(`\x1b[90m  Optional (not included in "all" — install by name): ${notInstalledOptional.join(', ')}\x1b[0m`);
+    }
     const answer = await ask(rl, 'Install (space-separated IDs, "all", or "q" to quit): ');
     rl.close();
 

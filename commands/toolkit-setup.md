@@ -1,6 +1,6 @@
 ---
 name: toolkit-setup
-description: Interactive setup for Claude Code tools — install, reinstall, or add individual tools (Context7, Serena, Beads, beads-ui, BMAD)
+description: Interactive setup for Claude Code tools — install, reinstall, or add individual tools
 argument-hint: "[tool-name]"
 ---
 

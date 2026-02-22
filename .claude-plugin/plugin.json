@@ -1,7 +1,7 @@
 {
   "name": "toolkit",
   "version": "1.0.0",
-  "description": "One-command setup for essential Claude Code tools — Context7, Serena, Beads, beads-ui, BMAD-METHOD",
+  "description": "One-command setup for essential Claude Code tools — Context7, Serena, Beads, beads-ui",
   "author": {
     "name": "iVintik"
   },

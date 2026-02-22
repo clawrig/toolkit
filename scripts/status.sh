@@ -13,7 +13,7 @@ check_plugin() {
 
 icon_ok="\033[32m✓\033[0m"
 icon_no="\033[90m·\033[0m"
-icon_pp="\033[90m[per-project]\033[0m"
+icon_opt="\033[90m[optional]\033[0m"
 
 echo ""
 echo "  Toolkit Status"
@@ -52,9 +52,9 @@ fi
 
 # BMAD
 if [[ -d "$PWD/_bmad" ]]; then
-  printf "  $icon_ok %-12s BMAD-METHOD — SDLC workflow framework $icon_pp\n" "bmad"
+  printf "  $icon_ok %-12s BMAD-METHOD — SDLC workflow framework $icon_opt\n" "bmad"
 else
-  printf "  $icon_no %-12s BMAD-METHOD — SDLC workflow framework $icon_pp\n" "bmad"
+  printf "  $icon_no %-12s BMAD-METHOD — SDLC workflow framework $icon_opt\n" "bmad"
 fi
 
 echo ""
