@@ -1,1 +1,1 @@
-# claude_plugin_toolkit
+# claude-plugin-toolkit
