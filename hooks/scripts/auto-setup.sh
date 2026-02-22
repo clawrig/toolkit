@@ -61,6 +61,7 @@ fi
 
 # --- Serena ---
 if check_mcp "serena"; then
+  configure_serena
   installed+=("Serena")
 else
   if command_exists uvx; then
