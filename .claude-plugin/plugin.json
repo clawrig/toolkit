@@ -1,5 +1,5 @@
 {
-  "name": "toolkit",
+  "name": "clawrig-toolkit",
   "version": "2.1.1",
   "description": "Setup and project init for Claude Code tools \u2014 Context7, Serena, Beads, Agent Mail, Atlas, Relay, Claudeman",
   "author": {
