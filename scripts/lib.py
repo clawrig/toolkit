@@ -63,6 +63,7 @@ def run_capture(cmd: str, timeout: int = 10) -> str | None:
 _CLAUDE_DIR = os.path.join(os.path.expanduser("~"), ".claude")
 _PLUGINS_JSON = os.path.join(_CLAUDE_DIR, "plugins", "installed_plugins.json")
 _SETTINGS_JSON = os.path.join(_CLAUDE_DIR, "settings.json")
+_CLAUDE_JSON = os.path.join(os.path.expanduser("~"), ".claude.json")
 _MARKETPLACES_JSON = os.path.join(_CLAUDE_DIR, "plugins", "known_marketplaces.json")
 
 
@@ -76,10 +77,18 @@ def _read_json(path: str) -> dict:
 
 
 def check_mcp(name: str) -> bool:
-    """Check if an MCP server is configured (reads settings.json directly)."""
-    data = _read_json(_SETTINGS_JSON)
-    servers = data.get("mcpServers", {})
-    return name.lower() in (k.lower() for k in servers)
+    """Check if an MCP server is configured.
+
+    Claude Code stores user-scoped MCP servers in ~/.claude.json (not ~/.claude/settings.json).
+    We check both files for robustness.
+    """
+    needle = name.lower()
+    for path in (_CLAUDE_JSON, _SETTINGS_JSON):
+        data = _read_json(path)
+        servers = data.get("mcpServers", {})
+        if needle in (k.lower() for k in servers):
+            return True
+    return False
 
 
 def check_plugin(name: str) -> bool:
