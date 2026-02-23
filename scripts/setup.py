@@ -185,8 +185,10 @@ def _install_mail():
         f.write(f"HTTP_PORT={MAIL_PORT}\n")
         f.write(f"HTTP_BEARER_TOKEN={token}\n")
 
-    # Register MCP server in Claude Code
+    # Register MCP server in Claude Code (remove first if exists from prior install)
     log("  Registering MCP server...")
+    if check_mcp("agent-mail"):
+        run("claude mcp remove agent-mail --scope user")
     if not run(
         f'claude mcp add agent-mail http://localhost:{MAIL_PORT}/api/ '
         f'--scope user --transport http '
