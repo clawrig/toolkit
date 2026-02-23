@@ -93,6 +93,18 @@ tool(
     recommended=True,
 )
 
+# --- Dolt ---
+tool(
+    "dolt", "Dolt", "Git-for-data SQL server (required by Beads)",
+    check_fn=lambda: command_exists("dolt"),
+    install_fn=lambda: ensure_dep("dolt", "Dolt", {
+        "darwin": "brew install dolt",
+        "linux": 'sudo bash -c "curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash"',
+    }),
+    uninstall_fn=lambda: run("brew uninstall dolt"),
+    recommended=True,
+)
+
 # --- Beads ---
 def _install_beads():
     ensure_dep("bd", "Beads CLI (bd)", {
@@ -116,7 +128,7 @@ tool(
     check_fn=lambda: command_exists("bd") and check_plugin("beads"),
     install_fn=_install_beads,
     uninstall_fn=_uninstall_beads,
-    deps=["bd"],
+    deps=["bd", "dolt"],
 )
 
 # --- beads-ui ---
@@ -260,7 +272,7 @@ tool(
     check_fn=lambda: os.path.isdir(os.path.join(os.getcwd(), "_bmad")),
     install_fn=_install_bmad,
     deps=["npx"],
-    optional=True,
+    optional=False,
     per_project=True,
 )
 

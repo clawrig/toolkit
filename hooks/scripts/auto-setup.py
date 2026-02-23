@@ -9,11 +9,11 @@ scripts_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
 sys.path.insert(0, os.path.abspath(scripts_dir))
 
 from lib import (
-    CLAUDEMAN_PORT, MAIL_PORT,
-    check_claudeman_installed, check_mail_installed, check_mail_mcp,
-    check_plugin, claudeman_server_alive, command_exists,
-    log, mail_server_alive, marker_is_fresh,
-    start_claudeman, start_mail_server, touch_marker,
+    CLAUDEMAN_PORT, DOLT_PORT, MAIL_PORT,
+    check_claudeman_installed, check_dolt_installed, check_mail_installed,
+    check_mail_mcp, check_plugin, claudeman_server_alive, command_exists,
+    dolt_server_alive, log, mail_server_alive, marker_is_fresh,
+    start_claudeman, start_dolt_server, start_mail_server, touch_marker,
 )
 
 
@@ -22,6 +22,11 @@ def main():
     if check_mail_installed() and not mail_server_alive():
         if start_mail_server():
             log("Toolkit: Agent Mail server started")
+
+    # Always ensure Dolt sql-server is running (if installed)
+    if check_dolt_installed() and not dolt_server_alive():
+        if start_dolt_server():
+            log("Toolkit: Dolt sql-server started")
 
     # Always ensure Claudeman is running (if installed)
     if check_claudeman_installed() and not claudeman_server_alive():
@@ -39,6 +44,8 @@ def main():
         missing.append("Context7")
     if not check_plugin("serena"):
         missing.append("Serena")
+    if not check_dolt_installed():
+        missing.append("Dolt (brew install dolt)")
     if not (command_exists("bd") and check_plugin("beads")):
         missing.append("Beads")
     if not command_exists("bdui"):

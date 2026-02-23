@@ -270,23 +270,30 @@ def init_beads(project_dir: str):
     return bool(run(f'cd "{project_dir}" && bd init --quiet {slug}'))
 
 
+def _pre_commit_has_guard(project_dir: str) -> bool:
+    pre_commit = os.path.join(project_dir, ".git", "hooks", "pre-commit")
+    if not os.path.isfile(pre_commit):
+        return False
+    try:
+        content = open(pre_commit).read()
+        return "agent-mail" in content or "agent_mail" in content
+    except OSError:
+        return False
+
+
 def init_agent_mail(project_dir: str):
     if not check_mail_installed() or not mail_server_alive():
         return False
 
-    pre_commit = os.path.join(project_dir, ".git", "hooks", "pre-commit")
-    if os.path.isfile(pre_commit):
-        try:
-            content = open(pre_commit).read()
-            if "agent-mail" in content or "agent_mail" in content:
-                return True  # Already installed
-        except OSError:
-            pass
+    if _pre_commit_has_guard(project_dir):
+        return True  # Already installed
 
-    return bool(run(
+    run(
         f'cd {MAIL_DIR} && uv run python -m mcp_agent_mail.cli guard install '
         f'"{project_dir}" "{project_dir}"'
-    ))
+    )
+    # Verify the guard was actually written (command may silently skip)
+    return _pre_commit_has_guard(project_dir)
 
 
 def init_serena(project_dir: str):

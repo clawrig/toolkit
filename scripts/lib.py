@@ -237,6 +237,58 @@ def start_claudeman() -> bool:
     return False
 
 
+# ── Dolt helpers ─────────────────────────────────────────────────────────
+
+DOLT_PORT = 3307
+
+
+def check_dolt_installed() -> bool:
+    """Check if dolt CLI is available."""
+    return command_exists("dolt")
+
+
+def dolt_server_alive() -> bool:
+    """Check if dolt sql-server is responding on DOLT_PORT."""
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", DOLT_PORT), timeout=2):
+            return True
+    except (OSError, ConnectionRefusedError):
+        return False
+
+
+def start_dolt_server() -> bool:
+    """Start dolt sql-server in the background. Returns True if started or already running."""
+    if dolt_server_alive():
+        return True
+    if not check_dolt_installed():
+        return False
+    import time
+    # Use ~/.dolt/server as the data directory
+    data_dir = os.path.join(os.path.expanduser("~"), ".dolt", "server")
+    os.makedirs(data_dir, exist_ok=True)
+    # Initialize dolt repo if not already
+    if not os.path.isdir(os.path.join(data_dir, ".dolt")):
+        subprocess.run(
+            ["dolt", "init"],
+            cwd=data_dir,
+            capture_output=True,
+        )
+    log_file = os.path.join(data_dir, "server.log")
+    subprocess.Popen(
+        ["dolt", "sql-server", "--port", str(DOLT_PORT)],
+        cwd=data_dir,
+        stdout=open(log_file, "a"),
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    for _ in range(6):
+        time.sleep(1)
+        if dolt_server_alive():
+            return True
+    return False
+
+
 # ── Dep installation ──────────────────────────────────────────────────────────
 
 PLATFORM = sys.platform  # darwin, linux, win32
