@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-project initialization — register in Atlas, configure Relay trackers."""
+"""Batch project initialization — scan subdirectories for git repos and init each one."""
 
 import json
 import os
@@ -21,9 +21,17 @@ NON_INTERACTIVE = "--non-interactive" in args
 ATLAS_ONLY = "--atlas-only" in args
 RELAY_ONLY = "--relay-only" in args
 SKIP_BMAD = "--no-bmad" in args
+DEPTH = 2  # How many levels deep to scan for git repos
+
+for a in args:
+    if a.startswith("--depth="):
+        try:
+            DEPTH = int(a.split("=", 1)[1])
+        except ValueError:
+            pass
 
 HOME = os.path.expanduser("~")
-CWD = os.getcwd()
+SCAN_ROOT = os.getcwd()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,9 +42,9 @@ def _slug_from_dirname(path: str) -> str:
     return slug
 
 
-def _detect_project_name() -> str:
+def _detect_project_name(project_dir: str) -> str:
     """Try package.json name, fallback to dirname."""
-    pkg = os.path.join(CWD, "package.json")
+    pkg = os.path.join(project_dir, "package.json")
     if os.path.isfile(pkg):
         try:
             data = json.loads(open(pkg).read())
@@ -44,45 +52,35 @@ def _detect_project_name() -> str:
                 return data["name"]
         except (json.JSONDecodeError, OSError):
             pass
-    return os.path.basename(os.path.abspath(CWD))
+    return os.path.basename(os.path.abspath(project_dir))
 
 
-def _detect_tags() -> list[str]:
+def _detect_tags(project_dir: str) -> list[str]:
     """Auto-detect project tags from files present."""
     tags = []
-    if os.path.isfile(os.path.join(CWD, "package.json")) or os.path.isfile(os.path.join(CWD, "tsconfig.json")):
-        tags.append("typescript")
-    elif os.path.isfile(os.path.join(CWD, "package.json")):
-        tags.append("javascript")
-    if os.path.isfile(os.path.join(CWD, "Cargo.toml")):
-        tags.append("rust")
-    if os.path.isfile(os.path.join(CWD, "go.mod")):
-        tags.append("go")
-    if os.path.isfile(os.path.join(CWD, "build.gradle")) or os.path.isfile(os.path.join(CWD, "build.gradle.kts")):
-        tags.append("java")
-    if os.path.isfile(os.path.join(CWD, "requirements.txt")) or os.path.isfile(os.path.join(CWD, "pyproject.toml")):
-        tags.append("python")
-    if os.path.isfile(os.path.join(CWD, "build.sbt")):
-        tags.append("scala")
-    if os.path.isfile(os.path.join(CWD, "Gemfile")):
-        tags.append("ruby")
-    if os.path.isfile(os.path.join(CWD, "composer.json")):
-        tags.append("php")
-    if os.path.isfile(os.path.join(CWD, "Package.swift")):
-        tags.append("swift")
-    if os.path.isfile(os.path.join(CWD, "CMakeLists.txt")) or os.path.isfile(os.path.join(CWD, "Makefile")):
-        # Only add cpp if no other language detected (Makefile is ambiguous)
-        if not tags:
+    checks = [
+        (["package.json", "tsconfig.json"], "typescript"),
+        (["Cargo.toml"], "rust"),
+        (["go.mod"], "go"),
+        (["build.gradle", "build.gradle.kts"], "java"),
+        (["requirements.txt", "pyproject.toml"], "python"),
+        (["build.sbt"], "scala"),
+        (["Gemfile"], "ruby"),
+        (["composer.json"], "php"),
+        (["Package.swift"], "swift"),
+        (["mix.exs"], "elixir"),
+        (["pubspec.yaml"], "dart"),
+    ]
+    for files, tag in checks:
+        if any(os.path.isfile(os.path.join(project_dir, f)) for f in files):
+            tags.append(tag)
+    if not tags:
+        if any(os.path.isfile(os.path.join(project_dir, f)) for f in ["CMakeLists.txt", "Makefile"]):
             tags.append("cpp")
-    if os.path.isfile(os.path.join(CWD, "mix.exs")):
-        tags.append("elixir")
-    if os.path.isfile(os.path.join(CWD, "pubspec.yaml")):
-        tags.append("dart")
     return tags
 
 
 # Tag → Serena language name mapping
-# Serena uses "typescript" for JS too, "cpp" for C too
 TAG_TO_SERENA = {
     "typescript": "typescript",
     "javascript": "typescript",
@@ -101,113 +99,97 @@ TAG_TO_SERENA = {
 }
 
 
-def _read_yaml_simple(path: str) -> dict | None:
-    """Minimal YAML reader for simple key: value and projects: block.
-    Only handles what we need — NOT a full YAML parser."""
-    if not os.path.isfile(path):
-        return None
-    try:
-        return {"_raw": open(path).read()}
-    except OSError:
-        return None
-
-
 def _registry_has_slug(registry_path: str, slug: str) -> bool:
-    """Check if slug already exists in registry.yaml."""
     if not os.path.isfile(registry_path):
         return False
     content = open(registry_path).read()
-    # Look for "  slug:" pattern (2-space indent under projects:)
     return bool(re.search(rf"^  {re.escape(slug)}:", content, re.M))
 
 
 def _registry_has_path(registry_path: str, path: str) -> bool:
-    """Check if path already registered."""
     if not os.path.isfile(registry_path):
         return False
     content = open(registry_path).read()
-    # Normalize: replace home with ~
     tilde_path = path.replace(HOME, "~")
     return tilde_path in content or path in content
 
 
-# ── Atlas ─────────────────────────────────────────────────────────────────────
+# ── Scan for git repos ───────────────────────────────────────────────────────
 
 
-def init_atlas():
-    log(f"\n  {BOLD}Atlas{RESET}")
-    log("  ─────")
+def find_git_repos(root: str, max_depth: int) -> list[str]:
+    """Find directories containing .git/ up to max_depth levels deep."""
+    repos = []
 
+    def _scan(path: str, depth: int):
+        if depth > max_depth:
+            return
+        try:
+            entries = sorted(os.listdir(path))
+        except PermissionError:
+            return
+
+        if ".git" in entries and os.path.isdir(os.path.join(path, ".git")):
+            repos.append(path)
+            return  # Don't scan inside a git repo for nested repos
+
+        for entry in entries:
+            if entry.startswith(".") or entry == "node_modules" or entry == "vendor":
+                continue
+            full = os.path.join(path, entry)
+            if os.path.isdir(full) and not os.path.islink(full):
+                _scan(full, depth + 1)
+
+    _scan(root, 0)
+    return repos
+
+
+# ── Per-project init functions ───────────────────────────────────────────────
+
+
+def init_atlas(project_dir: str):
     if not check_plugin("atlas"):
-        log(f"  {DIM}Atlas plugin not installed — skipping{RESET}")
-        log(f"  {DIM}Install with: claude plugin install atlas{RESET}")
-        return
+        return False
 
     atlas_dir = os.path.join(HOME, ".claude", "atlas")
     registry_path = os.path.join(atlas_dir, "registry.yaml")
     cache_dir = os.path.join(atlas_dir, "cache", "projects")
-    project_config = os.path.join(CWD, ".claude", "atlas.yaml")
+    project_config = os.path.join(project_dir, ".claude", "atlas.yaml")
 
-    # Ensure directories exist
     os.makedirs(cache_dir, exist_ok=True)
 
-    # Create registry if missing
     if not os.path.isfile(registry_path):
         with open(registry_path, "w") as f:
             f.write("# Atlas project registry\n\nprojects:\n")
-        log("  Created registry.yaml")
 
-    # Check if already registered
-    if _registry_has_path(registry_path, CWD):
-        log(f"  {GREEN}✓{RESET} Project already registered in atlas")
-        if os.path.isfile(project_config):
-            log(f"  {DIM}Config: .claude/atlas.yaml{RESET}")
-        return
+    if _registry_has_path(registry_path, project_dir):
+        return True  # Already registered
 
-    # Detect project info
-    name = _detect_project_name()
-    slug = _slug_from_dirname(CWD)
-    remote = git_remote_url(CWD)
-    tags = _detect_tags()
+    name = _detect_project_name(project_dir)
+    slug = _slug_from_dirname(project_dir)
+    remote = git_remote_url(project_dir)
+    tags = _detect_tags(project_dir)
 
-    # Avoid slug collision
     if _registry_has_slug(registry_path, slug):
         slug = slug + "-2"
 
-    log(f"  Registering: {CYAN}{name}{RESET} (slug: {slug})")
-
-    # Get summary
-    if NON_INTERACTIVE:
-        summary = "Initialized by toolkit"
-    else:
-        try:
-            summary = input(f"  Summary (<100 chars): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            summary = "Initialized by toolkit"
-        if not summary:
-            summary = "Initialized by toolkit"
-
-    # Write .claude/atlas.yaml
-    os.makedirs(os.path.join(CWD, ".claude"), exist_ok=True)
+    # Write .claude/atlas.yaml if missing
+    os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
     if not os.path.isfile(project_config):
         tags_str = ", ".join(tags) if tags else ""
-        yaml_content = f"name: {name}\nsummary: \"{summary}\"\n"
+        yaml_content = f"name: {name}\nsummary: \"Initialized by toolkit\"\n"
         if tags_str:
             yaml_content += f"tags: [{tags_str}]\n"
         with open(project_config, "w") as f:
             f.write(yaml_content)
-        log(f"  Created .claude/atlas.yaml")
-    else:
-        log(f"  {DIM}.claude/atlas.yaml already exists{RESET}")
 
     # Add to registry
-    tilde_path = CWD.replace(HOME, "~")
+    tilde_path = project_dir.replace(HOME, "~")
     entry = f"  {slug}:\n    path: {tilde_path}\n"
     if remote:
         entry += f"    repo: {remote}\n"
     with open(registry_path, "a") as f:
         f.write(entry)
-    log(f"  Added to registry")
 
     # Cache
     if os.path.isfile(project_config):
@@ -224,91 +206,40 @@ def init_atlas():
         with open(cache_file, "w") as f:
             f.write(meta)
             f.write(open(project_config).read())
-        log(f"  Cached to ~/.claude/atlas/cache/projects/{slug}.yaml")
 
-    log(f"  {GREEN}✓{RESET} Atlas registration complete")
-
-
-# ── Relay ─────────────────────────────────────────────────────────────────────
+    return True
 
 
-def init_relay():
-    log(f"\n  {BOLD}Relay{RESET}")
-    log("  ─────")
-
+def init_relay(project_dir: str):
     if not check_plugin("relay"):
-        log(f"  {DIM}Relay plugin not installed — skipping{RESET}")
-        log(f"  {DIM}Install with: claude plugin install relay{RESET}")
-        return
+        return False
 
-    relay_config = os.path.join(CWD, ".claude", "relay.yaml")
-
+    relay_config = os.path.join(project_dir, ".claude", "relay.yaml")
     if os.path.isfile(relay_config):
-        log(f"  {GREEN}✓{RESET} .claude/relay.yaml already exists")
-        return
+        return True  # Already configured
 
-    # Detect from git remote
-    remote = git_remote_url(CWD)
+    remote = git_remote_url(project_dir)
     host = detect_repo_host(remote) if remote else None
     org_repo = extract_org_repo(remote) if remote else None
     has_beads = command_exists("bd")
 
     trackers = []
-
     if host and org_repo:
-        log(f"  Detected: {CYAN}{host}{RESET} ({org_repo})")
-
-        if NON_INTERACTIVE:
-            # Auto-configure detected tracker as default
-            tracker = {"name": host, "type": host, "default": True}
-            if host == "github":
-                tracker["repo"] = org_repo
-            elif host == "gitlab":
-                tracker["project_id"] = org_repo
-            trackers.append(tracker)
-
-            if has_beads:
-                trackers.append({"name": "beads", "type": "beads", "scope": "local"})
-        else:
-            log(f"  Available trackers:")
-            options = []
-            if host in ("github", "gitlab"):
-                options.append(host)
-            if has_beads:
-                options.append("beads")
-            log(f"    {', '.join(options)}")
-            try:
-                answer = input(f"  Configure which? (space-separated, \"all\", or \"q\"): ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                answer = "q"
-
-            if not answer or answer == "q":
-                log("  Skipped.")
-                return
-
-            selected = options if answer == "all" else answer.split()
-            for t in selected:
-                if t == host:
-                    tracker = {"name": host, "type": host, "default": True}
-                    if host == "github":
-                        tracker["repo"] = org_repo
-                    elif host == "gitlab":
-                        tracker["project_id"] = org_repo
-                    trackers.append(tracker)
-                elif t == "beads":
-                    trackers.append({"name": "beads", "type": "beads", "scope": "local"})
+        tracker = {"name": host, "type": host, "default": True}
+        if host == "github":
+            tracker["repo"] = org_repo
+        elif host == "gitlab":
+            tracker["project_id"] = org_repo
+        trackers.append(tracker)
+        if has_beads:
+            trackers.append({"name": "beads", "type": "beads", "scope": "local"})
     elif has_beads:
-        log(f"  No git remote detected, configuring beads only")
         trackers.append({"name": "beads", "type": "beads", "scope": "local", "default": True})
-    else:
-        log(f"  {DIM}No git remote and no beads CLI — nothing to configure{RESET}")
-        return
 
     if not trackers:
-        return
+        return False
 
-    # Write relay.yaml
-    os.makedirs(os.path.join(CWD, ".claude"), exist_ok=True)
+    os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
     lines = ["issue_trackers:"]
     for t in trackers:
         lines.append(f"  - name: {t['name']}")
@@ -325,105 +256,48 @@ def init_relay():
     with open(relay_config, "w") as f:
         f.write("\n".join(lines) + "\n")
 
-    log(f"  Created .claude/relay.yaml")
-    log(f"  {GREEN}✓{RESET} Relay configuration complete")
+    return True
 
 
-# ── Beads ─────────────────────────────────────────────────────────────────
-
-
-def init_beads():
-    log(f"\n  {BOLD}Beads{RESET}")
-    log("  ─────")
-
+def init_beads(project_dir: str):
     if not command_exists("bd"):
-        log(f"  {DIM}bd CLI not installed — skipping{RESET}")
-        return
+        return False
+    if os.path.isdir(os.path.join(project_dir, ".beads")):
+        return True  # Already initialized
 
-    beads_dir = os.path.join(CWD, ".beads")
-
-    if os.path.isdir(beads_dir):
-        log(f"  {GREEN}✓{RESET} .beads/ already initialized")
-        return
-
-    # Check we're in a git repo (beads requires git)
-    if not os.path.isdir(os.path.join(CWD, ".git")):
-        log(f"  {DIM}Not a git repo — beads requires git, skipping{RESET}")
-        return
-
-    name = _detect_project_name()
+    name = _detect_project_name(project_dir)
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-
-    log(f"  Initializing beads with prefix: {CYAN}{slug}{RESET}")
-    if run(f"bd init --quiet {slug}"):
-        log(f"  {GREEN}✓{RESET} Beads initialized")
-    else:
-        log(f"  {YELLOW}!{RESET} bd init failed — run manually: bd init")
+    return bool(run(f'cd "{project_dir}" && bd init --quiet {slug}'))
 
 
-# ── Agent Mail ────────────────────────────────────────────────────────────
+def init_agent_mail(project_dir: str):
+    if not check_mail_installed() or not mail_server_alive():
+        return False
 
-
-def init_agent_mail():
-    log(f"\n  {BOLD}Agent Mail{RESET}")
-    log("  ──────────")
-
-    if not check_mail_installed():
-        log(f"  {DIM}Agent Mail not installed — skipping{RESET}")
-        return
-
-    if not mail_server_alive():
-        log(f"  {YELLOW}!{RESET} Agent Mail server not running (start with /toolkit-setup)")
-        return
-
-    # Check we're in a git repo (guard needs .git/)
-    if not os.path.isdir(os.path.join(CWD, ".git")):
-        log(f"  {DIM}Not a git repo — skipping guard install{RESET}")
-        return
-
-    # Check if guard is already installed
-    pre_commit = os.path.join(CWD, ".git", "hooks", "pre-commit")
+    pre_commit = os.path.join(project_dir, ".git", "hooks", "pre-commit")
     if os.path.isfile(pre_commit):
         try:
             content = open(pre_commit).read()
             if "agent-mail" in content or "agent_mail" in content:
-                log(f"  {GREEN}✓{RESET} Pre-commit guard already installed")
-                return
+                return True  # Already installed
         except OSError:
             pass
 
-    log("  Installing pre-commit guard...")
-    if run(
-        f"cd {MAIL_DIR} && uv run python -m mcp_agent_mail.cli guard install "
-        f'"{CWD}" "{CWD}"'
-    ):
-        log(f"  {GREEN}✓{RESET} Pre-commit guard installed")
-        log(f"  {DIM}Blocks commits conflicting with other agents' file reservations{RESET}")
-    else:
-        log(f"  {YELLOW}!{RESET} Guard install failed — install manually:")
-        log(f"    cd {MAIL_DIR} && uv run python -m mcp_agent_mail.cli guard install \"{CWD}\" \"{CWD}\"")
+    return bool(run(
+        f'cd {MAIL_DIR} && uv run python -m mcp_agent_mail.cli guard install '
+        f'"{project_dir}" "{project_dir}"'
+    ))
 
 
-# ── Serena ────────────────────────────────────────────────────────────────
-
-
-def init_serena():
-    log(f"\n  {BOLD}Serena{RESET}")
-    log("  ──────")
-
+def init_serena(project_dir: str):
     if not check_plugin("serena"):
-        log(f"  {DIM}Serena plugin not installed — skipping{RESET}")
-        return
+        return False
 
-    serena_dir = os.path.join(CWD, ".serena")
-    project_yml = os.path.join(serena_dir, "project.yml")
-
+    project_yml = os.path.join(project_dir, ".serena", "project.yml")
     if os.path.isfile(project_yml):
-        log(f"  {GREEN}✓{RESET} .serena/project.yml already exists")
-        return
+        return True  # Already exists
 
-    # Detect languages from project files
-    tags = _detect_tags()
+    tags = _detect_tags(project_dir)
     languages = []
     for tag in tags:
         lang = TAG_TO_SERENA.get(tag)
@@ -431,23 +305,12 @@ def init_serena():
             languages.append(lang)
 
     if not languages:
-        if NON_INTERACTIVE:
-            log(f"  {DIM}No languages detected — skipping Serena setup{RESET}")
-            return
-        try:
-            answer = input("  Languages (space-separated, e.g. python typescript): ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            answer = ""
-        if not answer:
-            log("  Skipped.")
-            return
-        languages = answer.split()
+        return False
 
-    name = _detect_project_name()
-    log(f"  Languages: {CYAN}{', '.join(languages)}{RESET}")
-
-    # Write .serena/project.yml
+    name = _detect_project_name(project_dir)
+    serena_dir = os.path.join(project_dir, ".serena")
     os.makedirs(serena_dir, exist_ok=True)
+
     lines = [
         f'project_name: "{name}"',
         "languages:",
@@ -470,45 +333,12 @@ def init_serena():
     with open(project_yml, "w") as f:
         f.write("\n".join(lines) + "\n")
 
-    # Write .serena/.gitignore (cache and logs should not be committed)
     gitignore = os.path.join(serena_dir, ".gitignore")
     if not os.path.isfile(gitignore):
         with open(gitignore, "w") as f:
             f.write("cache/\nmemories/\n")
 
-    log(f"  Created .serena/project.yml")
-
-    # Trigger onboarding — Serena's onboarding discovers project structure,
-    # build/test tasks, and stores results in .serena/memories/.
-    # It runs as an MCP tool call, so we just tell the user.
-    log(f"  {CYAN}→{RESET} Run Serena onboarding in Claude Code to complete setup:")
-    log(f"    Ask Claude: \"run serena onboarding for this project\"")
-
-    log(f"  {GREEN}✓{RESET} Serena project setup complete")
-
-
-# ── BMAD ──────────────────────────────────────────────────────────────────────
-
-
-def init_bmad():
-    log(f"\n  {BOLD}BMAD{RESET}")
-    log("  ────")
-
-    if os.path.isdir(os.path.join(CWD, "_bmad")):
-        log(f"  {GREEN}✓{RESET} _bmad/ already exists")
-        return
-
-    if NON_INTERACTIVE or not sys.stdin.isatty():
-        log("  Installing BMAD non-interactively...")
-        cmd = f'npx bmad-method install --directory "{CWD}" --modules bmm --tools claude-code --yes'
-        if run(cmd):
-            log(f"  {GREEN}✓{RESET} BMAD installed")
-        else:
-            log(f"  {YELLOW}!{RESET} BMAD install failed — run manually: npx bmad-method install")
-        return
-
-    log("  Launching BMAD installer...")
-    run("npx bmad-method install")
+    return True
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -516,25 +346,84 @@ def init_bmad():
 
 def main():
     log()
-    log(f"  {BOLD}Project Init{RESET}")
-    log(f"  {'=' * 12}")
-    log(f"  {DIM}{CWD}{RESET}")
-
-    if not RELAY_ONLY:
-        init_atlas()
-
-    if not ATLAS_ONLY:
-        init_relay()
-
-    init_beads()
-    init_agent_mail()
-    init_serena()
-
-    if not SKIP_BMAD:
-        init_bmad()
-
+    log(f"  {BOLD}Project Init — Batch Scanner{RESET}")
+    log(f"  {'=' * 28}")
+    log(f"  Scanning: {DIM}{SCAN_ROOT}{RESET} (depth={DEPTH})")
     log()
-    log(f"  {BOLD}Done!{RESET}")
+
+    repos = find_git_repos(SCAN_ROOT, DEPTH)
+
+    if not repos:
+        log(f"  {YELLOW}No git repos found{RESET} in {SCAN_ROOT} (depth={DEPTH})")
+        log(f"  Try increasing depth: --depth=3")
+        log()
+        return
+
+    log(f"  Found {BOLD}{len(repos)}{RESET} git repos:")
+    for r in repos:
+        rel = os.path.relpath(r, SCAN_ROOT)
+        log(f"    {DIM}{rel}{RESET}")
+    log()
+
+    # Check available tools once
+    has_atlas = check_plugin("atlas")
+    has_relay = check_plugin("relay")
+    has_beads = command_exists("bd")
+    has_mail = check_mail_installed() and mail_server_alive()
+    has_serena = check_plugin("serena")
+
+    tools = []
+    if has_atlas and not RELAY_ONLY:
+        tools.append("atlas")
+    if has_relay and not ATLAS_ONLY:
+        tools.append("relay")
+    if has_beads:
+        tools.append("beads")
+    if has_mail:
+        tools.append("mail-guard")
+    if has_serena:
+        tools.append("serena")
+
+    log(f"  Available tools: {CYAN}{', '.join(tools) or 'none'}{RESET}")
+    log()
+
+    results = []
+
+    for repo_path in repos:
+        rel = os.path.relpath(repo_path, SCAN_ROOT)
+        status = {}
+
+        if has_atlas and not RELAY_ONLY:
+            status["atlas"] = init_atlas(repo_path)
+        if has_relay and not ATLAS_ONLY:
+            status["relay"] = init_relay(repo_path)
+        if has_beads:
+            status["beads"] = init_beads(repo_path)
+        if has_mail:
+            status["mail"] = init_agent_mail(repo_path)
+        if has_serena:
+            status["serena"] = init_serena(repo_path)
+
+        results.append((rel, status))
+
+    # Summary table
+    log(f"  {BOLD}Results{RESET}")
+    log(f"  {'─' * 60}")
+
+    for rel, status in results:
+        checks = []
+        for tool, ok in status.items():
+            if ok:
+                checks.append(f"{GREEN}✓{RESET}{tool}")
+            else:
+                checks.append(f"{DIM}·{tool}{RESET}")
+        checks_str = "  ".join(checks)
+        log(f"  {rel:<40} {checks_str}")
+
+    initialized = sum(1 for _, s in results if any(s.values()))
+    skipped = len(results) - initialized
+    log()
+    log(f"  {GREEN}{initialized} initialized{RESET}, {DIM}{skipped} already up to date{RESET}")
     log()
 
 

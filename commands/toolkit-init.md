@@ -1,30 +1,30 @@
 ---
 name: toolkit-init
-description: Initialize current project for ClawRig ecosystem — Atlas, Relay, Serena, BMAD
-argument-hint: "[--atlas-only | --relay-only | --no-bmad]"
+description: Scan subdirectories for git repos and initialize each for ClawRig ecosystem — Atlas, Relay, Beads, Serena, Agent Mail
+argument-hint: "[--depth=N] [--atlas-only | --relay-only | --no-bmad | --non-interactive]"
 ---
 
-# Project Init
+# Batch Project Init
 
-Initialize the current project for the ClawRig ecosystem.
+Scan the current directory for git repositories and initialize each one for the ClawRig ecosystem.
 
 ## Steps
 
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/init.py`
 2. The script will:
-   - Register the project in Atlas (if atlas plugin is installed)
-   - Configure Relay trackers based on the git remote (if relay plugin is installed)
-   - Initialize Beads issue tracker — `bd init` (if bd CLI is available and project is a git repo)
-   - Install Agent Mail pre-commit guard (if Agent Mail is installed and server is running)
-   - Generate `.serena/project.yml` with auto-detected languages (if serena plugin is installed)
-   - Install BMAD workflow framework (unless `--no-bmad` flag is passed)
+   - Scan subdirectories (default depth=2) for `.git/` directories
+   - For each repo found, initialize: Atlas registration, Relay tracker config, Beads, Agent Mail guard, Serena project config
+   - Skip repos that are already initialized
+   - Print a summary table of results
 3. Display the results to the user
-4. **After init completes**, trigger Serena onboarding if `.serena/project.yml` was just created:
-   - Use the `onboarding` MCP tool from Serena to discover project structure and build/test tasks
-   - This stores results in `.serena/memories/` for future sessions
 
 If `$ARGUMENTS` contains flags, pass them through:
 `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/init.py $ARGUMENTS`
 
-For non-interactive use (e.g., from CI or scripts):
-`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/init.py --non-interactive`
+## Options
+
+- `--depth=N` — How deep to scan for git repos (default: 2)
+- `--atlas-only` — Only register projects in Atlas
+- `--relay-only` — Only configure Relay trackers
+- `--no-bmad` — Skip BMAD installation
+- `--non-interactive` — No prompts, use defaults for everything
