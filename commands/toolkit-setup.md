@@ -6,16 +6,23 @@ argument-hint: "[tool-name]"
 
 # Toolkit Setup
 
-Run the interactive toolkit setup script.
+The setup script must run from a **regular terminal** (outside Claude Code) because `claude plugin install` and `claude mcp add` hang when invoked from within a running session.
 
-## Steps
+Do NOT attempt to run the script yourself. Instead, tell the user to run one of these commands in their terminal:
 
-1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py`
-2. The script will show currently installed tools and prompt the user to select which to install
-3. Display the results to the user
+**Install interactively:**
+```
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py
+```
 
-If `$ARGUMENTS` contains a specific tool name, pass it to the script:
-`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py --install $ARGUMENTS`
+**Install a specific tool** (if `$ARGUMENTS` contains a tool name):
+```
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py --install $ARGUMENTS
+```
 
-If `$ARGUMENTS` is "all", install all standard tools non-interactively:
-`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py --non-interactive`
+**Install all standard tools** (if `$ARGUMENTS` is "all"):
+```
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py --non-interactive
+```
+
+Present the command clearly so the user can copy-paste it. Use `/toolkit:toolkit-status` to show current status (that one works inside Claude Code).

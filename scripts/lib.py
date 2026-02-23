@@ -1,5 +1,6 @@
 """Shared helpers for toolkit scripts. Stdlib only, zero external deps."""
 
+import json
 import os
 import re
 import shutil
@@ -32,41 +33,76 @@ def command_exists(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
-def run(cmd: str, **kwargs) -> bool:
+def run(cmd: str, timeout: int = 60, **kwargs) -> bool:
     """Run command with inherited stdio. Returns True on success."""
     try:
-        subprocess.run(cmd, shell=True, check=True, **kwargs)
+        subprocess.run(cmd, shell=True, check=True, timeout=timeout, **kwargs)
         return True
+    except subprocess.TimeoutExpired:
+        log(f"  Warning: command timed out ({timeout}s): {cmd}")
+        return False
     except subprocess.CalledProcessError:
         log(f"  Warning: command failed: {cmd}")
         return False
 
 
-def run_capture(cmd: str) -> str | None:
-    """Run command and return stdout, or None on failure."""
+def run_capture(cmd: str, timeout: int = 10) -> str | None:
+    """Run command and return stdout, or None on failure/timeout."""
     try:
-        r = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        r = subprocess.run(
+            cmd, shell=True, check=True, capture_output=True, text=True,
+            timeout=timeout,
+        )
         return r.stdout
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return None
 
 
-# ── Claude CLI checks ────────────────────────────────────────────────────────
+# ── Claude config paths ──────────────────────────────────────────────────────
+
+_CLAUDE_DIR = os.path.join(os.path.expanduser("~"), ".claude")
+_PLUGINS_JSON = os.path.join(_CLAUDE_DIR, "plugins", "installed_plugins.json")
+_SETTINGS_JSON = os.path.join(_CLAUDE_DIR, "settings.json")
+_MARKETPLACES_JSON = os.path.join(_CLAUDE_DIR, "plugins", "known_marketplaces.json")
+
+
+def _read_json(path: str) -> dict:
+    """Read a JSON file, returning empty dict on any failure."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def check_mcp(name: str) -> bool:
-    out = run_capture("claude mcp list")
-    return out is not None and name.lower() in out.lower()
+    """Check if an MCP server is configured (reads settings.json directly)."""
+    data = _read_json(_SETTINGS_JSON)
+    servers = data.get("mcpServers", {})
+    return name.lower() in (k.lower() for k in servers)
 
 
 def check_plugin(name: str) -> bool:
-    out = run_capture("claude plugin list")
-    return out is not None and name.lower() in out.lower()
+    """Check if a plugin is installed (reads installed_plugins.json directly)."""
+    data = _read_json(_PLUGINS_JSON)
+    plugins = data.get("plugins", {})
+    needle = name.lower()
+    return any(needle in key.lower() for key in plugins)
 
 
 def check_marketplace(name: str) -> bool:
-    out = run_capture("claude plugin marketplace list")
-    return out is not None and name.lower() in out.lower()
+    """Check if a marketplace is registered (reads known_marketplaces.json directly)."""
+    data = _read_json(_MARKETPLACES_JSON)
+    needle = name.lower()
+    for key, val in data.items():
+        if needle in key.lower():
+            return True
+        # Also check source repo field (e.g. "steveyegge/beads")
+        repo = (val.get("source", {}).get("repo", "") or
+                val.get("source", {}).get("url", ""))
+        if needle in repo.lower():
+            return True
+    return False
 
 
 # ── Serena config ─────────────────────────────────────────────────────────────
