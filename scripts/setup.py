@@ -237,6 +237,10 @@ def _install_claudeman():
         log("  Installing dependencies...")
         if not run(f"npm install --prefix {CLAUDEMAN_DIR}"):
             return False
+    if not os.path.isfile(os.path.join(CLAUDEMAN_DIR, "dist", "index.js")):
+        log("  Building...")
+        if not run(f"npm run build --prefix {CLAUDEMAN_DIR}", timeout=120):
+            return False
     log(f"  Claudeman installed at {CLAUDEMAN_DIR}")
     log(f"  Start with: npm start --prefix {CLAUDEMAN_DIR}")
     return True

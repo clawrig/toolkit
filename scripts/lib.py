@@ -200,8 +200,9 @@ CLAUDEMAN_PORT = 3000
 
 
 def check_claudeman_installed() -> bool:
-    """Check if Claudeman is installed (repo cloned + node_modules exists)."""
-    return os.path.isdir(os.path.join(CLAUDEMAN_DIR, "node_modules"))
+    """Check if Claudeman is installed (repo cloned + node_modules + dist built)."""
+    return (os.path.isdir(os.path.join(CLAUDEMAN_DIR, "node_modules"))
+            and os.path.isfile(os.path.join(CLAUDEMAN_DIR, "dist", "index.js")))
 
 
 def claudeman_server_alive() -> bool:
