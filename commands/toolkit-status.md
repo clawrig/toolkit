@@ -9,5 +9,5 @@ Check the status of all toolkit-managed tools.
 
 ## Steps
 
-1. Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh`
+1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/status.py`
 2. Display the output to the user in a formatted way

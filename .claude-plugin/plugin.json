@@ -1,7 +1,7 @@
 {
   "name": "toolkit",
-  "version": "1.0.0",
-  "description": "One-command setup for essential Claude Code tools — Context7, Serena, Beads, beads-ui",
+  "version": "2.0.0",
+  "description": "Setup and project init for Claude Code tools — Context7, Serena, Beads, Agent Mail, Atlas, Relay, Claudeman",
   "author": {
     "name": "iVintik"
   },
