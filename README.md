@@ -68,6 +68,7 @@ This runs the full per-project initialization sequence:
 | `/toolkit-setup [tool]` | Install tools — interactive or by name |
 | `/toolkit-status` | Show installation status of all tools + per-project state |
 | `/toolkit-init [flags]` | Initialize current project (full sequence above) |
+| `/toolkit-ignore [--list\|--remove]` | Exclude a project from `/toolkit-init` scans |
 | `/toolkit-uninstall [tool\|all]` | Remove installed tools |
 
 ### Skills
@@ -87,6 +88,18 @@ This runs the full per-project initialization sequence:
 | `--non-interactive` | Skip prompts, use auto-detected defaults |
 
 Beads, Agent Mail guard, and Serena always run (if their tools are installed). Use `--atlas-only` or `--relay-only` to limit scope.
+
+### Ignoring a project
+
+To exclude a project from `/toolkit-init` scans:
+
+```
+/toolkit-ignore              # Ignore current project
+/toolkit-ignore --remove     # Un-ignore current project
+/toolkit-ignore --list       # List ignored projects
+```
+
+The marker (`.git/info/toolkit-ignore`) lives inside `.git/` — never tracked, no gitignore changes needed.
 
 ## Auto-Setup
 

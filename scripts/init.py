@@ -130,7 +130,8 @@ def find_git_repos(root: str, max_depth: int) -> list[str]:
             return
 
         if ".git" in entries and os.path.isdir(os.path.join(path, ".git")):
-            repos.append(path)
+            if not os.path.isfile(os.path.join(path, ".git", "info", "toolkit-ignore")):
+                repos.append(path)
             return  # Don't scan inside a git repo for nested repos
 
         for entry in entries:
