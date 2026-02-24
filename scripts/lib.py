@@ -234,7 +234,7 @@ def start_claudeman() -> bool:
         return False
     import time
     subprocess.Popen(
-        ["npm", "start"],
+        ["node", "dist/index.js", "web"],
         cwd=CLAUDEMAN_DIR,
         stdout=open(os.path.join(CLAUDEMAN_DIR, "server.log"), "a"),
         stderr=subprocess.STDOUT,
