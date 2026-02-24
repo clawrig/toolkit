@@ -96,7 +96,7 @@ Control how `/toolkit-init` treats each project:
 | Mode | What init does |
 |------|---------------|
 | **normal** (default) | Full init — Atlas, Relay, Beads, Agent Mail, Serena, BMAD |
-| **readonly** | Atlas global registry only — no files written to repo. For reference projects |
+| **readonly** | Atlas only (config + registry) with `.claude/` added to `.git/info/exclude` so nothing gets committed. For reference projects you don't develop in |
 | **ignore** | Completely skipped by init scans |
 
 ```

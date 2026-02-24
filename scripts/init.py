@@ -173,13 +173,30 @@ def find_git_repos(root: str, max_depth: int) -> list[str]:
 # ── Per-project init functions ───────────────────────────────────────────────
 
 
-def init_atlas(project_dir: str, registry_only: bool = False):
+def _git_exclude_add(project_dir: str, pattern: str):
+    """Add a pattern to .git/info/exclude if not already present.
+
+    This is the local-only gitignore — never committed, never pushed.
+    """
+    exclude_path = os.path.join(project_dir, ".git", "info", "exclude")
+    os.makedirs(os.path.dirname(exclude_path), exist_ok=True)
+    existing = ""
+    if os.path.isfile(exclude_path):
+        existing = open(exclude_path).read()
+    if pattern in existing:
+        return
+    with open(exclude_path, "a") as f:
+        if existing and not existing.endswith("\n"):
+            f.write("\n")
+        f.write(f"{pattern}\n")
+
+
+def init_atlas(project_dir: str, readonly: bool = False):
     """Register project in Atlas.
 
     Args:
-        registry_only: If True, only add to global registry and cache.
-                       Do NOT create .claude/atlas.yaml in the project repo.
-                       Used for readonly-mode projects.
+        readonly: If True, still write .claude/atlas.yaml but add it to
+                  .git/info/exclude so it never shows in git status or gets pushed.
     """
     if not check_plugin("atlas"):
         return False
@@ -206,16 +223,19 @@ def init_atlas(project_dir: str, registry_only: bool = False):
     if _registry_has_slug(registry_path, slug):
         slug = slug + "-2"
 
-    # Write .claude/atlas.yaml if missing (skip for readonly projects)
-    if not registry_only:
-        os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
-        if not os.path.isfile(project_config):
-            tags_str = ", ".join(tags) if tags else ""
-            yaml_content = f"name: {name}\nsummary: \"Initialized by toolkit\"\n"
-            if tags_str:
-                yaml_content += f"tags: [{tags_str}]\n"
-            with open(project_config, "w") as f:
-                f.write(yaml_content)
+    # Write .claude/atlas.yaml if missing
+    os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
+    if not os.path.isfile(project_config):
+        tags_str = ", ".join(tags) if tags else ""
+        yaml_content = f"name: {name}\nsummary: \"Initialized by toolkit\"\n"
+        if tags_str:
+            yaml_content += f"tags: [{tags_str}]\n"
+        with open(project_config, "w") as f:
+            f.write(yaml_content)
+
+    # For readonly projects, exclude .claude/ from git so nothing gets pushed
+    if readonly:
+        _git_exclude_add(project_dir, ".claude/")
 
     # Add to registry
     tilde_path = project_dir.replace(HOME, "~")
@@ -225,12 +245,12 @@ def init_atlas(project_dir: str, registry_only: bool = False):
     with open(registry_path, "a") as f:
         f.write(entry)
 
-    # Cache — use project config if it exists, otherwise build from detected data
+    # Cache
     import time
     cache_file = os.path.join(cache_dir, f"{slug}.yaml")
     meta = (
         f"_cache_meta:\n"
-        f"  source: {project_config if os.path.isfile(project_config) else 'auto-detected'}\n"
+        f"  source: {project_config}\n"
         f"  cached_at: \"{time.strftime('%Y-%m-%dT%H:%M:%S')}\"\n"
     )
     if remote:
@@ -238,14 +258,7 @@ def init_atlas(project_dir: str, registry_only: bool = False):
     meta += "\n"
     with open(cache_file, "w") as f:
         f.write(meta)
-        if os.path.isfile(project_config):
-            f.write(open(project_config).read())
-        else:
-            # Build minimal cache from detected data
-            tags_str = ", ".join(tags) if tags else ""
-            f.write(f"name: {name}\nsummary: \"Auto-detected (readonly)\"\n")
-            if tags_str:
-                f.write(f"tags: [{tags_str}]\n")
+        f.write(open(project_config).read())
 
     return True
 
@@ -520,9 +533,9 @@ def main():
         status = {}
 
         if mode == "readonly":
-            # Readonly: only register in Atlas (no files written to repo)
+            # Readonly: Atlas with local exclude, skip everything else
             if has_atlas and not RELAY_ONLY:
-                status["atlas"] = init_atlas(repo_path, registry_only=True)
+                status["atlas"] = init_atlas(repo_path, readonly=True)
         else:
             # Normal mode: full init
             if has_atlas and not RELAY_ONLY:
