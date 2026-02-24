@@ -184,6 +184,7 @@ def _install_mail():
     with open(env_file, "w") as f:
         f.write(f"HTTP_PORT={MAIL_PORT}\n")
         f.write(f"HTTP_BEARER_TOKEN={token}\n")
+        f.write("WORKTREES_ENABLED=1\n")
 
     # Register MCP server in Claude Code (remove first if exists from prior install)
     log("  Registering MCP server...")
