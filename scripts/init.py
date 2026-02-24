@@ -117,8 +117,33 @@ def _registry_has_path(registry_path: str, path: str) -> bool:
 # ── Scan for git repos ───────────────────────────────────────────────────────
 
 
+def read_project_mode(project_dir: str) -> str:
+    """Read project toolkit mode from .git/info/toolkit-mode.
+
+    Returns 'normal', 'readonly', or 'ignore'.
+    Also checks legacy .git/info/toolkit-ignore marker.
+    """
+    mode_file = os.path.join(project_dir, ".git", "info", "toolkit-mode")
+    if os.path.isfile(mode_file):
+        try:
+            mode = open(mode_file).read().strip().lower()
+            if mode in ("ignore", "readonly"):
+                return mode
+        except OSError:
+            pass
+    # Legacy marker
+    ignore_file = os.path.join(project_dir, ".git", "info", "toolkit-ignore")
+    if os.path.isfile(ignore_file):
+        return "ignore"
+    return "normal"
+
+
 def find_git_repos(root: str, max_depth: int) -> list[str]:
-    """Find directories containing .git/ up to max_depth levels deep."""
+    """Find directories containing .git/ up to max_depth levels deep.
+
+    Skips repos with mode=ignore. Repos with mode=readonly are included
+    (filtered later in the init loop).
+    """
     repos = []
 
     def _scan(path: str, depth: int):
@@ -130,7 +155,7 @@ def find_git_repos(root: str, max_depth: int) -> list[str]:
             return
 
         if ".git" in entries and os.path.isdir(os.path.join(path, ".git")):
-            if not os.path.isfile(os.path.join(path, ".git", "info", "toolkit-ignore")):
+            if read_project_mode(path) != "ignore":
                 repos.append(path)
             return  # Don't scan inside a git repo for nested repos
 
@@ -148,7 +173,14 @@ def find_git_repos(root: str, max_depth: int) -> list[str]:
 # ── Per-project init functions ───────────────────────────────────────────────
 
 
-def init_atlas(project_dir: str):
+def init_atlas(project_dir: str, registry_only: bool = False):
+    """Register project in Atlas.
+
+    Args:
+        registry_only: If True, only add to global registry and cache.
+                       Do NOT create .claude/atlas.yaml in the project repo.
+                       Used for readonly-mode projects.
+    """
     if not check_plugin("atlas"):
         return False
 
@@ -174,15 +206,16 @@ def init_atlas(project_dir: str):
     if _registry_has_slug(registry_path, slug):
         slug = slug + "-2"
 
-    # Write .claude/atlas.yaml if missing
-    os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
-    if not os.path.isfile(project_config):
-        tags_str = ", ".join(tags) if tags else ""
-        yaml_content = f"name: {name}\nsummary: \"Initialized by toolkit\"\n"
-        if tags_str:
-            yaml_content += f"tags: [{tags_str}]\n"
-        with open(project_config, "w") as f:
-            f.write(yaml_content)
+    # Write .claude/atlas.yaml if missing (skip for readonly projects)
+    if not registry_only:
+        os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
+        if not os.path.isfile(project_config):
+            tags_str = ", ".join(tags) if tags else ""
+            yaml_content = f"name: {name}\nsummary: \"Initialized by toolkit\"\n"
+            if tags_str:
+                yaml_content += f"tags: [{tags_str}]\n"
+            with open(project_config, "w") as f:
+                f.write(yaml_content)
 
     # Add to registry
     tilde_path = project_dir.replace(HOME, "~")
@@ -192,21 +225,27 @@ def init_atlas(project_dir: str):
     with open(registry_path, "a") as f:
         f.write(entry)
 
-    # Cache
-    if os.path.isfile(project_config):
-        import time
-        cache_file = os.path.join(cache_dir, f"{slug}.yaml")
-        meta = (
-            f"_cache_meta:\n"
-            f"  source: {project_config}\n"
-            f"  cached_at: \"{time.strftime('%Y-%m-%dT%H:%M:%S')}\"\n"
-        )
-        if remote:
-            meta += f"  repo: {remote}\n"
-        meta += "\n"
-        with open(cache_file, "w") as f:
-            f.write(meta)
+    # Cache — use project config if it exists, otherwise build from detected data
+    import time
+    cache_file = os.path.join(cache_dir, f"{slug}.yaml")
+    meta = (
+        f"_cache_meta:\n"
+        f"  source: {project_config if os.path.isfile(project_config) else 'auto-detected'}\n"
+        f"  cached_at: \"{time.strftime('%Y-%m-%dT%H:%M:%S')}\"\n"
+    )
+    if remote:
+        meta += f"  repo: {remote}\n"
+    meta += "\n"
+    with open(cache_file, "w") as f:
+        f.write(meta)
+        if os.path.isfile(project_config):
             f.write(open(project_config).read())
+        else:
+            # Build minimal cache from detected data
+            tags_str = ", ".join(tags) if tags else ""
+            f.write(f"name: {name}\nsummary: \"Auto-detected (readonly)\"\n")
+            if tags_str:
+                f.write(f"tags: [{tags_str}]\n")
 
     return True
 
@@ -477,28 +516,35 @@ def main():
 
     for repo_path in repos:
         rel = os.path.relpath(repo_path, SCAN_ROOT)
+        mode = read_project_mode(repo_path)
         status = {}
 
-        if has_atlas and not RELAY_ONLY:
-            status["atlas"] = init_atlas(repo_path)
-        if has_relay and not ATLAS_ONLY:
-            status["relay"] = init_relay(repo_path)
-        if has_beads:
-            status["beads"] = init_beads(repo_path)
-        if has_mail:
-            status["mail"] = init_agent_mail(repo_path)
-        if has_serena:
-            status["serena"] = init_serena(repo_path)
-        if has_bmad:
-            status["bmad"] = init_bmad(repo_path)
+        if mode == "readonly":
+            # Readonly: only register in Atlas (no files written to repo)
+            if has_atlas and not RELAY_ONLY:
+                status["atlas"] = init_atlas(repo_path, registry_only=True)
+        else:
+            # Normal mode: full init
+            if has_atlas and not RELAY_ONLY:
+                status["atlas"] = init_atlas(repo_path)
+            if has_relay and not ATLAS_ONLY:
+                status["relay"] = init_relay(repo_path)
+            if has_beads:
+                status["beads"] = init_beads(repo_path)
+            if has_mail:
+                status["mail"] = init_agent_mail(repo_path)
+            if has_serena:
+                status["serena"] = init_serena(repo_path)
+            if has_bmad:
+                status["bmad"] = init_bmad(repo_path)
 
-        results.append((rel, status))
+        results.append((rel, mode, status))
 
     # Summary table
     log(f"  {BOLD}Results{RESET}")
     log(f"  {'─' * 60}")
 
-    for rel, status in results:
+    for rel, mode, status in results:
         checks = []
         for tool, ok in status.items():
             if ok:
@@ -506,9 +552,10 @@ def main():
             else:
                 checks.append(f"{DIM}·{tool}{RESET}")
         checks_str = "  ".join(checks)
-        log(f"  {rel:<40} {checks_str}")
+        mode_tag = f" {DIM}[{mode}]{RESET}" if mode != "normal" else ""
+        log(f"  {rel:<40} {checks_str}{mode_tag}")
 
-    initialized = sum(1 for _, s in results if any(s.values()))
+    initialized = sum(1 for _, _, s in results if any(s.values()))
     skipped = len(results) - initialized
     log()
     log(f"  {GREEN}{initialized} initialized{RESET}, {DIM}{skipped} already up to date{RESET}")

@@ -68,7 +68,7 @@ This runs the full per-project initialization sequence:
 | `/toolkit-setup [tool]` | Install tools — interactive or by name |
 | `/toolkit-status` | Show installation status of all tools + per-project state |
 | `/toolkit-init [flags]` | Initialize current project (full sequence above) |
-| `/toolkit-ignore [--list\|--remove]` | Exclude a project from `/toolkit-init` scans |
+| `/toolkit-mode [normal\|readonly\|ignore]` | Set project init mode — full, registry-only, or skip |
 | `/toolkit-uninstall [tool\|all]` | Remove installed tools |
 
 ### Skills
@@ -89,17 +89,25 @@ This runs the full per-project initialization sequence:
 
 Beads, Agent Mail guard, and Serena always run (if their tools are installed). Use `--atlas-only` or `--relay-only` to limit scope.
 
-### Ignoring a project
+### Project modes
 
-To exclude a project from `/toolkit-init` scans:
+Control how `/toolkit-init` treats each project:
+
+| Mode | What init does |
+|------|---------------|
+| **normal** (default) | Full init — Atlas, Relay, Beads, Agent Mail, Serena, BMAD |
+| **readonly** | Atlas global registry only — no files written to repo. For reference projects |
+| **ignore** | Completely skipped by init scans |
 
 ```
-/toolkit-ignore              # Ignore current project
-/toolkit-ignore --remove     # Un-ignore current project
-/toolkit-ignore --list       # List ignored projects
+/toolkit-mode                # Show current mode
+/toolkit-mode readonly       # Set readonly (e.g. third-party repos you reference)
+/toolkit-mode ignore         # Fully exclude from init
+/toolkit-mode normal         # Reset to default
+/toolkit-mode --list         # List all projects with non-default modes
 ```
 
-The marker (`.git/info/toolkit-ignore`) lives inside `.git/` — never tracked, no gitignore changes needed.
+The mode is stored in `.git/info/toolkit-mode` — local only, never tracked by git, no gitignore changes needed.
 
 ## Auto-Setup
 
