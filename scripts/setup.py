@@ -259,36 +259,6 @@ tool(
     deps=["npm", "tmux", "git"],
 )
 
-# --- BMAD ---
-def _install_bmad():
-    cwd = os.getcwd()
-    if NON_INTERACTIVE or not sys.stdin.isatty():
-        log("  Installing BMAD (non-interactive)...")
-        cmd = (
-            f'npx bmad-method install'
-            f' --directory "{cwd}"'
-            f' --modules bmm'
-            f' --tools claude-code'
-            f' --yes'
-        )
-    else:
-        log("  Launching interactive BMAD installer...")
-        cmd = "npx bmad-method install"
-    r = subprocess.run(cmd, shell=True)
-    if not os.path.isdir(os.path.join(cwd, "_bmad")):
-        log("  BMAD installer finished but _bmad/ was not created.")
-        log("  Run manually: npx bmad-method install")
-        return False
-    return r.returncode == 0
-
-tool(
-    "bmad", "BMAD-METHOD", "SDLC workflow framework (PM, Architect, Dev, QA personas)",
-    check_fn=lambda: os.path.isdir(os.path.join(os.getcwd(), "_bmad")),
-    install_fn=_install_bmad,
-    deps=["npx"],
-    optional=False,
-    per_project=True,
-)
 
 # ── CLI args ──────────────────────────────────────────────────────────────────
 
