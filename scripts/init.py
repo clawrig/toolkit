@@ -324,14 +324,27 @@ def init_beads(project_dir: str):
 
 
 def _pre_commit_has_guard(project_dir: str) -> bool:
-    pre_commit = os.path.join(project_dir, ".git", "hooks", "pre-commit")
-    if not os.path.isfile(pre_commit):
-        return False
-    try:
-        content = open(pre_commit).read()
-        return "agent-mail" in content or "agent_mail" in content
-    except OSError:
-        return False
+    # Check both .git/hooks (direct) and .beads/hooks (beads hook runner)
+    candidates = [
+        os.path.join(project_dir, ".git", "hooks", "pre-commit"),
+        os.path.join(project_dir, ".beads", "hooks", "pre-commit"),
+    ]
+    # Also check the beads hooks.d directory for the dedicated guard script
+    beads_guard = os.path.join(
+        project_dir, ".beads", "hooks", "hooks.d", "pre-commit", "50-agent-mail.py"
+    )
+    if os.path.isfile(beads_guard):
+        return True
+    for path in candidates:
+        if not os.path.isfile(path):
+            continue
+        try:
+            content = open(path).read()
+            if "agent-mail" in content or "agent_mail" in content:
+                return True
+        except OSError:
+            pass
+    return False
 
 
 def _ensure_mail_project(project_dir: str) -> bool:
