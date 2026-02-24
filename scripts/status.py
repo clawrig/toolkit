@@ -24,6 +24,10 @@ def main():
     # ── User-level tools ──────────────────────────────────────────────────
 
     tools = [
+        ("atlas", "Atlas", "Project registry and cross-project awareness",
+         lambda: check_plugin("atlas"), False),
+        ("relay", "Relay", "Issue routing, handoffs, cross-project messaging",
+         lambda: check_plugin("relay"), False),
         ("context7", "Context7", "Up-to-date library docs (plugin)",
          lambda: check_plugin("context7"), False),
         ("serena", "Serena", "Semantic code navigation via LSP",

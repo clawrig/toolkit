@@ -40,6 +40,10 @@ def main():
     # Check what's installed vs missing (read-only, no claude CLI calls)
     missing = []
 
+    if not check_plugin("atlas"):
+        missing.append("Atlas")
+    if not check_plugin("relay"):
+        missing.append("Relay")
     if not check_plugin("context7"):
         missing.append("Context7")
     if not check_plugin("serena"):

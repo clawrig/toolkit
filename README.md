@@ -8,6 +8,8 @@ The toolkit installs and manages these tools:
 
 | Tool | What it does | Type |
 |------|-------------|------|
+| **Atlas** | Global project registry, cross-project awareness, project metadata | Plugin |
+| **Relay** | Issue routing (GitHub/GitLab/Jira/Beads), handoffs, cross-project messaging | Plugin |
 | **Context7** | Up-to-date library docs via MCP plugin | Plugin |
 | **Serena** | Semantic code navigation via LSP — definitions, references, rename across 30+ languages | Plugin |
 | **Beads** | Git-backed issue tracker in your repo (`.beads/`). 30+ slash commands for issues, epics, dependencies | CLI + plugin |
@@ -97,6 +99,42 @@ The toolkit runs a SessionStart hook that:
 This means tools stay available across sessions without manual intervention.
 
 ## Tool Reference
+
+### Atlas
+
+Maintains a central registry of all your projects at `~/.claude/atlas/registry.yaml`. Each project can have a `.claude/atlas.yaml` with metadata (name, summary, tags, links, docs). Atlas provides the project context that other tools build on.
+
+**Key commands:**
+
+```
+/atlas:projects        # List registered projects
+/atlas:docs            # Show project documentation links
+/atlas:context         # Display current project context
+```
+
+**Per-project setup:** `/toolkit-init` creates `.claude/atlas.yaml` with auto-detected name, tags, and summary, and registers the project in the global registry.
+
+**Installed from:** `ivintik` marketplace
+**Docs:** https://github.com/clawrig/atlas
+
+### Relay
+
+Routes issues to the right tracker, manages work handoffs within a project, and sends messages between projects via Agent Mail.
+
+**Key commands:**
+
+```
+/relay:issue <title>   # Create an issue (routed by config)
+/relay:handoff         # Save work context as a beads issue for another session to pick up
+/relay:pickup          # Resume a handed-off task
+/relay:status          # Show tracker status across configured sources
+/relay:trackers        # View/manage per-project tracker configuration
+```
+
+**Per-project setup:** `/toolkit-init` creates `.claude/relay.yaml` with auto-detected issue trackers from the git remote (GitHub/GitLab) plus Beads if available.
+
+**Installed from:** `ivintik` marketplace
+**Docs:** https://github.com/clawrig/relay
 
 ### Context7
 
@@ -244,43 +282,6 @@ Structured SDLC workflow framework with personas (PM, Architect, Developer, QA).
 **Per-project setup:** Installed automatically by `/toolkit-init`. In non-interactive mode, installs with `--modules bmm --tools claude-code --yes`. Skip with `--no-bmad`.
 
 **Docs:** https://www.npmjs.com/package/bmad-method
-
-## Related Plugins
-
-The toolkit sets up the foundation. These plugins provide the features:
-
-| Plugin | What it does | Install |
-|--------|-------------|---------|
-| **Atlas** | Global project registry, cross-project awareness, project metadata | `claude plugin install atlas` |
-| **Relay** | Issue routing (GitHub/GitLab/Jira/Beads), handoffs, cross-project messaging | `claude plugin install relay` |
-
-### Atlas
-
-Maintains a central registry of all your projects at `~/.claude/atlas/registry.yaml`. Each project can have a `.claude/atlas.yaml` with metadata (name, summary, tags, links, docs). Atlas provides the project context that other tools build on.
-
-**Key commands:**
-
-```
-/atlas:projects        # List registered projects
-/atlas:docs            # Show project documentation links
-/atlas:context         # Display current project context
-```
-
-### Relay
-
-Routes issues to the right tracker, manages work handoffs within a project, and sends messages between projects via Agent Mail.
-
-**Key commands:**
-
-```
-/relay:issue <title>   # Create an issue (routed by config)
-/relay:handoff         # Save work context as a beads issue for another session to pick up
-/relay:pickup          # Resume a handed-off task
-/relay:status          # Show tracker status across configured sources
-/relay:trackers        # View/manage per-project tracker configuration
-```
-
-**Per-project config** lives at `.claude/relay.yaml` — created automatically by `/toolkit-init`.
 
 ## Workflows
 
@@ -531,25 +532,20 @@ Installs just that one tool. Or run `/toolkit-setup` with no arguments for the i
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                      TOOLKIT (this plugin)                        │
-│  Setup, auto-install, project init, coordination skill           │
-└──────────────────┬───────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                        TOOLKIT (this plugin)                          │
+│  Setup, auto-install, project init, coordination skill                │
+└──────────────────┬────────────────────────────────────────────────────┘
                    │ installs & manages
                    ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ Context7 │ Serena │ Beads │ beads-ui │ Agent Mail │ Claudeman   │
-│ (plugin) │(plugin)│(CLI+P)│  (CLI)   │ (HTTP+MCP) │   (Web)    │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-                   │ foundation for
-                   ▼
-┌──────────────────────────┐    ┌──────────────────────────────────┐
-│          ATLAS           │    │             RELAY                │
-│  Project registry        │◄───│  Issue routing, handoffs,        │
-│  Cross-project context   │    │  cross-project messaging         │
-│  Provider system         │    │  (GitHub, GitLab, Jira, Beads)   │
-└──────────────────────────┘    └──────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│ Atlas │ Relay │ Context7 │ Serena │ Beads │ beads-ui │ Agent Mail │  │
+│(plug) │(plug) │ (plugin) │(plugin)│(CLI+P)│  (CLI)   │ (HTTP+MCP) │  │
+│       │       │          │        │       │          │            │  │
+│ ┌─────┴───────┘          │        │       │          │ Claudeman  │  │
+│ │ Cross-project          │        │       │          │   (Web)    │  │
+│ │ awareness & routing    │        │       │          │            │  │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 **Per-project init flow:**

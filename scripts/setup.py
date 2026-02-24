@@ -51,6 +51,40 @@ def _uninstall_context7():
     if check_mcp("context7"):
         run("claude mcp remove --scope user context7")
 
+# --- Atlas ---
+def _install_atlas():
+    if not check_marketplace("ivintik"):
+        run("claude plugin marketplace add iVintik/private-claude-marketplace")
+    return run("claude plugin install clawrig-atlas@ivintik")
+
+def _uninstall_atlas():
+    run("claude plugin uninstall clawrig-atlas")
+
+tool(
+    "atlas", "Atlas", "Project registry and cross-project awareness",
+    check_fn=lambda: check_plugin("atlas"),
+    install_fn=_install_atlas,
+    uninstall_fn=_uninstall_atlas,
+    recommended=True,
+)
+
+# --- Relay ---
+def _install_relay():
+    if not check_marketplace("ivintik"):
+        run("claude plugin marketplace add iVintik/private-claude-marketplace")
+    return run("claude plugin install clawrig-relay@ivintik")
+
+def _uninstall_relay():
+    run("claude plugin uninstall clawrig-relay")
+
+tool(
+    "relay", "Relay", "Issue routing, handoffs, cross-project messaging",
+    check_fn=lambda: check_plugin("relay"),
+    install_fn=_install_relay,
+    uninstall_fn=_uninstall_relay,
+    recommended=True,
+)
+
 tool(
     "context7", "Context7", "Up-to-date library docs via MCP plugin",
     check_fn=lambda: check_plugin("context7"),

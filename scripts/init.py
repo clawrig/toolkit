@@ -9,9 +9,9 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from lib import (
     BOLD, CYAN, DIM, GREEN, RED, RESET, YELLOW,
-    MAIL_DIR, check_mail_installed, check_mcp, check_plugin,
+    MAIL_DIR, MAIL_PORT, check_mail_installed, check_mcp, check_plugin,
     command_exists, detect_repo_host, extract_org_repo,
-    git_remote_url, log, mail_server_alive, run,
+    git_remote_url, log, mail_server_alive, read_mail_token, run,
 )
 
 # ── CLI args ──────────────────────────────────────────────────────────────────
@@ -281,12 +281,58 @@ def _pre_commit_has_guard(project_dir: str) -> bool:
         return False
 
 
+def _ensure_mail_project(project_dir: str) -> bool:
+    """Register a project with Agent Mail via its HTTP API before guard install.
+
+    The ``guard install`` CLI requires the project to already exist in the DB.
+    We call the MCP ``ensure_project`` tool over HTTP to create it idempotently.
+    """
+    import urllib.request
+    import urllib.error
+
+    token = read_mail_token()
+    url = f"http://localhost:{MAIL_PORT}/mcp"
+    payload = json.dumps({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "ensure_project",
+            "arguments": {"human_key": project_dir},
+        },
+    })
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        req = urllib.request.Request(url, data=payload.encode(), headers=headers)
+        resp = urllib.request.urlopen(req, timeout=10)
+        body = json.loads(resp.read())
+        result = body.get("result", {})
+        if not result.get("isError"):
+            return True
+        # Extract error text from MCP content array
+        err_texts = [c.get("text", "") for c in result.get("content", []) if c.get("text")]
+        err_msg = "; ".join(err_texts) or str(result)
+        log(f"  Warning: ensure_project error: {err_msg}")
+        return False
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        log(f"  Warning: ensure_project HTTP call failed: {exc}")
+        return False
+
+
 def init_agent_mail(project_dir: str):
     if not check_mail_installed() or not mail_server_alive():
         return False
 
     if _pre_commit_has_guard(project_dir):
         return True  # Already installed
+
+    # Ensure project is registered in Agent Mail DB before guard install
+    if not _ensure_mail_project(project_dir):
+        log(f"  Warning: could not register project with Agent Mail")
+        return False
 
     run(
         f'cd {MAIL_DIR} && uv run python -m mcp_agent_mail.cli guard install '
@@ -412,6 +458,18 @@ def main():
         tools.append("bmad")
 
     log(f"  Available tools: {CYAN}{', '.join(tools) or 'none'}{RESET}")
+
+    missing = []
+    if not has_atlas and not RELAY_ONLY:
+        missing.append("atlas")
+    if not has_relay and not ATLAS_ONLY:
+        missing.append("relay")
+    if not has_beads:
+        missing.append("beads")
+    if not has_serena:
+        missing.append("serena")
+    if missing:
+        log(f"  {YELLOW}Not installed: {', '.join(missing)} — run /toolkit-setup to add{RESET}")
     log()
 
     results = []

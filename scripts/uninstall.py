@@ -14,6 +14,18 @@ from lib import (
 # ── Tool definitions (uninstall only) ─────────────────────────────────────────
 
 TOOLS = {
+    "atlas": {
+        "name": "Atlas",
+        "check": lambda: check_plugin("atlas"),
+        "uninstall": lambda: run("claude plugin uninstall clawrig-atlas"),
+        "note": "Per-project .claude/atlas.yaml files and ~/.claude/atlas/ registry are preserved.",
+    },
+    "relay": {
+        "name": "Relay",
+        "check": lambda: check_plugin("relay"),
+        "uninstall": lambda: run("claude plugin uninstall clawrig-relay"),
+        "note": "Per-project .claude/relay.yaml files are preserved.",
+    },
     "context7": {
         "name": "Context7",
         "check": lambda: check_mcp("context7"),
