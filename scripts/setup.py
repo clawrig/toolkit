@@ -261,13 +261,21 @@ tool(
 
 # --- BMAD ---
 def _install_bmad():
+    cwd = os.getcwd()
     if NON_INTERACTIVE or not sys.stdin.isatty():
-        log("  BMAD requires an interactive terminal (TTY).")
-        log("  Run manually: npx bmad-method install")
-        return False
-    log("  Launching interactive BMAD installer...")
-    r = subprocess.run("npx bmad-method install", shell=True)
-    if not os.path.isdir(os.path.join(os.getcwd(), "_bmad")):
+        log("  Installing BMAD (non-interactive)...")
+        cmd = (
+            f'npx bmad-method install'
+            f' --directory "{cwd}"'
+            f' --modules bmm'
+            f' --tools claude-code'
+            f' --yes'
+        )
+    else:
+        log("  Launching interactive BMAD installer...")
+        cmd = "npx bmad-method install"
+    r = subprocess.run(cmd, shell=True)
+    if not os.path.isdir(os.path.join(cwd, "_bmad")):
         log("  BMAD installer finished but _bmad/ was not created.")
         log("  Run manually: npx bmad-method install")
         return False
