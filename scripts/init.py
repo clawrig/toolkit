@@ -348,6 +348,23 @@ def init_serena(project_dir: str):
     return True
 
 
+def init_bmad(project_dir: str):
+    if SKIP_BMAD:
+        return False
+    if not command_exists("npx"):
+        return False
+    if os.path.isdir(os.path.join(project_dir, "_bmad")):
+        return True  # Already installed
+    return bool(run(
+        f'npx bmad-method install'
+        f' --directory "{project_dir}"'
+        f' --modules bmm'
+        f' --tools claude-code'
+        f' --yes',
+        timeout=120,
+    ))
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -378,6 +395,7 @@ def main():
     has_beads = command_exists("bd")
     has_mail = check_mail_installed() and mail_server_alive()
     has_serena = check_plugin("serena")
+    has_bmad = command_exists("npx") and not SKIP_BMAD
 
     tools = []
     if has_atlas and not RELAY_ONLY:
@@ -390,6 +408,8 @@ def main():
         tools.append("mail-guard")
     if has_serena:
         tools.append("serena")
+    if has_bmad:
+        tools.append("bmad")
 
     log(f"  Available tools: {CYAN}{', '.join(tools) or 'none'}{RESET}")
     log()
@@ -410,6 +430,8 @@ def main():
             status["mail"] = init_agent_mail(repo_path)
         if has_serena:
             status["serena"] = init_serena(repo_path)
+        if has_bmad:
+            status["bmad"] = init_bmad(repo_path)
 
         results.append((rel, status))
 
