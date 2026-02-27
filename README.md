@@ -1,6 +1,6 @@
-# ClawRig Toolkit
+# Famdeck Toolkit
 
-Setup, project initialization, and service management for the ClawRig ecosystem — a set of Claude Code plugins that add project awareness, issue routing, handoffs, multi-agent coordination, and code navigation to your sessions.
+Setup, project initialization, and service management for the Famdeck ecosystem — a set of Claude Code plugins that add project awareness, issue routing, handoffs, multi-agent coordination, and code navigation to your sessions.
 
 ## What's Included
 
@@ -23,7 +23,7 @@ The toolkit installs and manages these tools:
 ### 1. Install the plugin
 
 ```bash
-claude plugin install /path/to/clawrig-toolkit
+claude plugin install /path/to/famdeck-toolkit
 ```
 
 ### 2. Run setup
@@ -136,7 +136,7 @@ Maintains a central registry of all your projects at `~/.claude/atlas/registry.y
 **Per-project setup:** `/toolkit-init` creates `.claude/atlas.yaml` with auto-detected name, tags, and summary, and registers the project in the global registry.
 
 **Installed from:** `ivintik` marketplace
-**Docs:** https://github.com/clawrig/atlas
+**Docs:** https://github.com/famdeck/atlas
 
 ### Relay
 
@@ -155,7 +155,7 @@ Routes issues to the right tracker, manages work handoffs within a project, and 
 **Per-project setup:** `/toolkit-init` creates `.claude/relay.yaml` with auto-detected issue trackers from the git remote (GitHub/GitLab) plus Beads if available.
 
 **Installed from:** `ivintik` marketplace
-**Docs:** https://github.com/clawrig/relay
+**Docs:** https://github.com/famdeck/relay
 
 ### Context7
 

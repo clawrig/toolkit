@@ -1,12 +1,12 @@
 ---
 name: toolkit-init
-description: Scan subdirectories for git repos and initialize each for ClawRig ecosystem — Atlas, Relay, Beads, Serena, Agent Mail
+description: Scan subdirectories for git repos and initialize each for Famdeck ecosystem — Atlas, Relay, Beads, Serena, Agent Mail
 argument-hint: "[--depth=N] [--atlas-only | --relay-only | --no-bmad | --non-interactive]"
 ---
 
 # Batch Project Init
 
-Scan the current directory for git repositories and initialize each one for the ClawRig ecosystem.
+Scan the current directory for git repositories and initialize each one for the Famdeck ecosystem.
 
 ## Steps
 

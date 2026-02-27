@@ -17,13 +17,13 @@ TOOLS = {
     "atlas": {
         "name": "Atlas",
         "check": lambda: check_plugin("atlas"),
-        "uninstall": lambda: run("claude plugin uninstall clawrig-atlas"),
+        "uninstall": lambda: run("claude plugin uninstall famdeck-atlas"),
         "note": "Per-project .claude/atlas.yaml files and ~/.claude/atlas/ registry are preserved.",
     },
     "relay": {
         "name": "Relay",
         "check": lambda: check_plugin("relay"),
-        "uninstall": lambda: run("claude plugin uninstall clawrig-relay"),
+        "uninstall": lambda: run("claude plugin uninstall famdeck-relay"),
         "note": "Per-project .claude/relay.yaml files are preserved.",
     },
     "context7": {

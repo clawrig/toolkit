@@ -61,7 +61,7 @@ def main():
 
     if missing:
         log(f"Toolkit: missing tools: {', '.join(missing)}")
-        log("  Run in terminal: python3 ~/.claude/plugins/cache/ivintik/clawrig-toolkit/*/scripts/setup.py")
+        log("  Run in terminal: python3 ~/.claude/plugins/cache/ivintik/famdeck-toolkit/*/scripts/setup.py")
 
     touch_marker()
 

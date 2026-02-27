@@ -55,10 +55,10 @@ def _uninstall_context7():
 def _install_atlas():
     if not check_marketplace("ivintik"):
         run("claude plugin marketplace add iVintik/private-claude-marketplace")
-    return run("claude plugin install clawrig-atlas@ivintik")
+    return run("claude plugin install famdeck-atlas@ivintik")
 
 def _uninstall_atlas():
-    run("claude plugin uninstall clawrig-atlas")
+    run("claude plugin uninstall famdeck-atlas")
 
 tool(
     "atlas", "Atlas", "Project registry and cross-project awareness",
@@ -72,10 +72,10 @@ tool(
 def _install_relay():
     if not check_marketplace("ivintik"):
         run("claude plugin marketplace add iVintik/private-claude-marketplace")
-    return run("claude plugin install clawrig-relay@ivintik")
+    return run("claude plugin install famdeck-relay@ivintik")
 
 def _uninstall_relay():
-    run("claude plugin uninstall clawrig-relay")
+    run("claude plugin uninstall famdeck-relay")
 
 tool(
     "relay", "Relay", "Issue routing, handoffs, cross-project messaging",
