@@ -1,7 +1,7 @@
 {
   "name": "famdeck-toolkit",
   "version": "2.4.2",
-  "description": "Setup and project init for Claude Code tools \u2014 Context7, Serena, Beads, Agent Mail, Atlas, Relay, Claudeman",
+  "description": "Setup and project init for Claude Code tools \u2014 Context7, Serena, Beads, Agent Mail, Atlas, Relay, Codeman",
   "author": {
     "name": "iVintik"
   },

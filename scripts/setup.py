@@ -8,13 +8,13 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from lib import (
     BOLD, CYAN, DIM, GREEN, RED, RESET, YELLOW,
-    CLAUDEMAN_DIR, CLAUDEMAN_PORT,
+    CODEMAN_DIR, CODEMAN_PORT,
     MAIL_DIR, MAIL_PORT, MAIL_TOKEN_FILE,
-    check_claudeman_installed, check_mail_installed, check_mail_mcp,
-    check_marketplace, check_mcp, check_plugin, claudeman_server_alive,
+    check_codeman_installed, check_mail_installed, check_mail_mcp,
+    check_marketplace, check_mcp, check_plugin, codeman_server_alive,
     command_exists, configure_serena, ensure_dep,
     generate_mail_token, log, mail_server_alive, read_mail_token, run,
-    run_capture, start_claudeman, start_mail_server,
+    run_capture, start_codeman, start_mail_server,
 )
 
 # ── Tool definitions ──────────────────────────────────────────────────────────
@@ -249,48 +249,47 @@ tool(
     deps=["uvx", "git"],
 )
 
-# --- Claudeman ---
-def _install_claudeman():
+# --- Codeman ---
+def _install_codeman():
     ok = ensure_dep("npm", "Node.js (npm)", {
         "darwin": "brew install node",
         "linux": "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs",
     })
     if not ok and not command_exists("npm"):
-        log("  Skipping Claudeman: npm not available")
+        log("  Skipping Codeman: npm not available")
         return False
     if not ensure_dep("tmux", "tmux", {
         "darwin": "brew install tmux",
         "linux": "sudo apt-get install -y tmux",
     }):
-        log("  Skipping Claudeman: tmux not available")
+        log("  Skipping Codeman: tmux not available")
         return False
-    if not os.path.isdir(CLAUDEMAN_DIR):
-        log("  Cloning Claudeman...")
-        if not run(f"git clone --depth 1 https://github.com/Ark0N/Claudeman.git {CLAUDEMAN_DIR}"):
+    codeman_parent = os.path.dirname(CODEMAN_DIR)
+    if not os.path.isdir(CODEMAN_DIR):
+        log("  Installing Codeman...")
+        os.makedirs(codeman_parent, exist_ok=True)
+        if not run(f"curl -fsSL https://raw.githubusercontent.com/Ark0N/Codeman/master/install.sh | bash"):
             return False
-    if not os.path.isdir(os.path.join(CLAUDEMAN_DIR, "node_modules")):
-        log("  Installing dependencies...")
-        if not run(f"npm install --prefix {CLAUDEMAN_DIR}"):
-            return False
-    if not os.path.isfile(os.path.join(CLAUDEMAN_DIR, "dist", "index.js")):
+    if not os.path.isfile(os.path.join(CODEMAN_DIR, "dist", "index.js")):
         log("  Building...")
-        if not run(f"npm run build --prefix {CLAUDEMAN_DIR}", timeout=120):
+        if not run(f"npm run build --prefix {CODEMAN_DIR}", timeout=120):
             return False
-    log(f"  Claudeman installed at {CLAUDEMAN_DIR}")
-    log(f"  Start with: npm start --prefix {CLAUDEMAN_DIR}")
+    log(f"  Codeman installed at {CODEMAN_DIR}")
+    log(f"  Start with: codeman web")
     return True
 
-def _uninstall_claudeman():
+def _uninstall_codeman():
     import shutil
-    if os.path.isdir(CLAUDEMAN_DIR):
-        shutil.rmtree(CLAUDEMAN_DIR)
-        log(f"  Removed {CLAUDEMAN_DIR}")
+    codeman_root = os.path.dirname(CODEMAN_DIR)
+    if os.path.isdir(codeman_root):
+        shutil.rmtree(codeman_root)
+        log(f"  Removed {codeman_root}")
 
 tool(
-    "claudeman", "Claudeman", "WebUI for Claude Code sessions (tmux, respawn, visualization)",
-    check_fn=lambda: check_claudeman_installed(),
-    install_fn=_install_claudeman,
-    uninstall_fn=_uninstall_claudeman,
+    "codeman", "Codeman", "WebUI for Claude Code sessions (tmux, respawn, visualization)",
+    check_fn=lambda: check_codeman_installed(),
+    install_fn=_install_codeman,
+    uninstall_fn=_uninstall_codeman,
     deps=["npm", "tmux", "git"],
 )
 
@@ -352,13 +351,13 @@ def main():
         else:
             log(f"  {YELLOW}!{RESET} Failed to start (check ~/.mcp_agent_mail/server.log)")
 
-    # Ensure Claudeman is running (if installed)
-    if check_claudeman_installed() and not claudeman_server_alive():
-        log("Starting Claudeman...")
-        if start_claudeman():
-            log(f"  {GREEN}✓{RESET} Claudeman running on port {CLAUDEMAN_PORT}")
+    # Ensure Codeman is running (if installed)
+    if check_codeman_installed() and not codeman_server_alive():
+        log("Starting Codeman...")
+        if start_codeman():
+            log(f"  {GREEN}✓{RESET} Codeman running on port {CODEMAN_PORT}")
         else:
-            log(f"  {YELLOW}!{RESET} Failed to start (check ~/.claudeman/server.log)")
+            log(f"  {YELLOW}!{RESET} Failed to start (check ~/.codeman/app/server.log)")
 
     log()
 

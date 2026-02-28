@@ -9,7 +9,7 @@ Coordinate with other agents working on the same project using Agent Mail's MCP 
 
 ## When To Use This
 
-- Multiple agents are working on the same codebase (via Claudeman, tmux, worktrees)
+- Multiple agents are working on the same codebase (via Codeman, tmux, worktrees)
 - You need to edit files that another agent might also be editing
 - You want to announce what you're working on so others don't conflict
 - You received a message from another agent and need to respond

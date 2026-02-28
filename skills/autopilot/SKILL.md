@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: "Autonomous work loop — discover tasks from Beads and Relay, pick the highest-priority one, work on it, close it, repeat. Designed for Claudeman respawn sessions and long-running autonomous work."
+description: "Autonomous work loop — discover tasks from Beads and Relay, pick the highest-priority one, work on it, close it, repeat. Designed for Codeman respawn sessions and long-running autonomous work."
 ---
 
 # Autopilot Work Loop
@@ -125,9 +125,9 @@ release_file_reservations(project_key="<path>", agent_name="<your name>")
 - **Missing context:** Read related issues (`bd show`), check git log, search the codebase. Don't guess — investigate.
 - **Blocked by another task:** Mark the dependency: `bd dep add <this-id> --blocked-by <other-id>`, then move to the next task.
 
-## Claudeman integration
+## Codeman integration
 
-When running in a Claudeman-managed session, use this as the respawn update prompt:
+When running in a Codeman-managed session, use this as the respawn update prompt:
 
 ```
 Check for relay handoffs and beads ready tasks, then work on the highest priority one. Run /toolkit:autopilot for the full protocol.

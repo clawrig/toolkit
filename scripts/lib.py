@@ -202,47 +202,47 @@ def start_mail_server() -> bool:
     return False
 
 
-# ── Claudeman helpers ────────────────────────────────────────────────────────
+# ── Codeman helpers ──────────────────────────────────────────────────────────
 
-CLAUDEMAN_DIR = os.path.join(os.path.expanduser("~"), ".claudeman")
-CLAUDEMAN_PORT = 3000
-
-
-def check_claudeman_installed() -> bool:
-    """Check if Claudeman is installed (repo cloned + node_modules + dist built)."""
-    return (os.path.isdir(os.path.join(CLAUDEMAN_DIR, "node_modules"))
-            and os.path.isfile(os.path.join(CLAUDEMAN_DIR, "dist", "index.js")))
+CODEMAN_DIR = os.path.join(os.path.expanduser("~"), ".codeman", "app")
+CODEMAN_PORT = 3000
 
 
-def claudeman_server_alive() -> bool:
-    """Check if Claudeman web UI is responding."""
+def check_codeman_installed() -> bool:
+    """Check if Codeman is installed (repo cloned + node_modules + dist built)."""
+    return (os.path.isdir(os.path.join(CODEMAN_DIR, "node_modules"))
+            and os.path.isfile(os.path.join(CODEMAN_DIR, "dist", "index.js")))
+
+
+def codeman_server_alive() -> bool:
+    """Check if Codeman web UI is responding."""
     import urllib.request
     import urllib.error
     try:
-        req = urllib.request.Request(f"http://localhost:{CLAUDEMAN_PORT}/")
+        req = urllib.request.Request(f"http://localhost:{CODEMAN_PORT}/")
         urllib.request.urlopen(req, timeout=2)
         return True
     except (urllib.error.URLError, OSError):
         return False
 
 
-def start_claudeman() -> bool:
-    """Start Claudeman server in the background."""
-    if claudeman_server_alive():
+def start_codeman() -> bool:
+    """Start Codeman server in the background."""
+    if codeman_server_alive():
         return True
-    if not check_claudeman_installed():
+    if not check_codeman_installed():
         return False
     import time
     subprocess.Popen(
         ["node", "dist/index.js", "web"],
-        cwd=CLAUDEMAN_DIR,
-        stdout=open(os.path.join(CLAUDEMAN_DIR, "server.log"), "a"),
+        cwd=CODEMAN_DIR,
+        stdout=open(os.path.join(CODEMAN_DIR, "server.log"), "a"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
     for _ in range(6):
         time.sleep(1)
-        if claudeman_server_alive():
+        if codeman_server_alive():
             return True
     return False
 

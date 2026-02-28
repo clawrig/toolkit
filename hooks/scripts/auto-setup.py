@@ -9,11 +9,11 @@ scripts_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
 sys.path.insert(0, os.path.abspath(scripts_dir))
 
 from lib import (
-    CLAUDEMAN_PORT, DOLT_PORT, MAIL_PORT,
-    check_claudeman_installed, check_dolt_installed, check_mail_installed,
-    check_mail_mcp, check_plugin, claudeman_server_alive, command_exists,
+    CODEMAN_PORT, DOLT_PORT, MAIL_PORT,
+    check_codeman_installed, check_dolt_installed, check_mail_installed,
+    check_mail_mcp, check_plugin, codeman_server_alive, command_exists,
     dolt_server_alive, log, mail_server_alive, marker_is_fresh,
-    start_claudeman, start_dolt_server, start_mail_server, touch_marker,
+    start_codeman, start_dolt_server, start_mail_server, touch_marker,
 )
 
 
@@ -28,10 +28,10 @@ def main():
         if start_dolt_server():
             log("Toolkit: Dolt sql-server started")
 
-    # Always ensure Claudeman is running (if installed)
-    if check_claudeman_installed() and not claudeman_server_alive():
-        if start_claudeman():
-            log("Toolkit: Claudeman server started")
+    # Always ensure Codeman is running (if installed)
+    if check_codeman_installed() and not codeman_server_alive():
+        if start_codeman():
+            log("Toolkit: Codeman server started")
 
     # Skip status check if marker is fresh
     if marker_is_fresh():
@@ -56,8 +56,8 @@ def main():
         missing.append("beads-ui")
     if not (check_mail_installed() and check_mail_mcp()):
         missing.append("Agent Mail")
-    if not check_claudeman_installed():
-        missing.append("Claudeman")
+    if not check_codeman_installed():
+        missing.append("Codeman")
 
     if missing:
         log(f"Toolkit: missing tools: {', '.join(missing)}")

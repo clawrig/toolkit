@@ -15,7 +15,7 @@ The toolkit installs and manages these tools:
 | **Beads** | Git-backed issue tracker in your repo (`.beads/`). 30+ slash commands for issues, epics, dependencies | CLI + plugin |
 | **beads-ui** | Browser-based kanban board, epic view, and search for Beads issues | Global CLI |
 | **Agent Mail** | Multi-agent coordination — identities, messaging, file reservations, pre-commit guard | HTTP server + MCP |
-| **Claudeman** | Persistent autonomous Claude sessions — respawn controller, tmux persistence, multi-session dashboard | Web service |
+| **Codeman** | Persistent autonomous Claude sessions — respawn controller, tmux persistence, multi-session dashboard | Web service |
 | **BMAD-METHOD** | SDLC workflow framework with PM, Architect, Dev, QA personas | Per-project |
 
 ## Quick Start
@@ -75,7 +75,7 @@ This runs the full per-project initialization sequence:
 
 | Skill | Description |
 |-------|-------------|
-| `/toolkit:autopilot` | Autonomous work loop — discover tasks from Beads/Relay, work on them, close, repeat. For Claudeman respawn and long-running sessions |
+| `/toolkit:autopilot` | Autonomous work loop — discover tasks from Beads/Relay, work on them, close, repeat. For Codeman respawn and long-running sessions |
 | `/toolkit:coordination` | Multi-agent coordination protocol — session bootstrap, file reservations, threaded messaging, Beads integration |
 
 ### toolkit-init flags
@@ -113,7 +113,7 @@ The mode is stored in `.git/info/toolkit-mode` — local only, never tracked by 
 
 The toolkit runs a SessionStart hook that:
 
-1. **Starts services** — Agent Mail (port 8765) and Claudeman (port 3000) if installed but not running
+1. **Starts services** — Agent Mail (port 8765) and Codeman (port 3000) if installed but not running
 2. **Installs missing tools** — non-interactively, with a 7-day cooldown
 3. **Migrates legacy installs** — Context7 and Serena are auto-migrated from raw MCP to plugin
 
@@ -237,7 +237,7 @@ Mail-like coordination layer for multi-agent workflows. Provides memorable agent
 
 **Docs:** https://github.com/Dicklesworthstone/mcp_agent_mail
 
-### Claudeman
+### Codeman
 
 Web-based session manager that turns Claude Code into a persistent autonomous agent. Sessions run inside tmux and survive network drops, machine sleep, and server restarts. The respawn controller detects idle Claude and automatically sends continuation prompts, keeping work going unattended for 24+ hours.
 
@@ -266,13 +266,13 @@ Web-based session manager that turns Claude Code into a persistent autonomous ag
 
 **Details:**
 - Dashboard at `http://localhost:3000`
-- Installed at `~/.claudeman/`
+- Installed at `~/.codeman/app/`
 - Requires tmux and Node.js 18+
 - Auto-started by the toolkit's SessionStart hook
 - Creates new Claude sessions (does not attach to existing ones)
-- Can also start via `claudeman web` CLI
+- Can also start via `codeman web` CLI
 
-**Docs:** https://github.com/Ark0N/Claudeman
+**Docs:** https://github.com/Ark0N/Codeman
 
 ### BMAD-METHOD
 
@@ -323,7 +323,7 @@ This runs the full init sequence: Atlas registration, Relay tracker config (GitH
 ```
 cd ~/dev/my-project
 
-# Claude Code starts → toolkit auto-starts Agent Mail and Claudeman
+# Claude Code starts → toolkit auto-starts Agent Mail and Codeman
 # → Atlas detects the current project
 # → Relay loads tracker config
 
@@ -361,12 +361,12 @@ In the next session (same project, same branch):
 /relay:pickup
 ```
 
-### Autonomous overnight work (Claudeman)
+### Autonomous overnight work (Codeman)
 
 Let Claude work on a project unattended:
 
 ```
-# Open Claudeman dashboard:
+# Open Codeman dashboard:
 # http://localhost:3000
 
 # 1. Create a new session via the UI
@@ -389,14 +389,14 @@ Desktop notifications alert you if Claude needs tool approval — click the noti
 
 **Manual tmux access** (for debugging or if the web UI is down):
 ```bash
-tmux ls                              # See all Claudeman sessions
-tmux attach-session -t claudeman-myproject  # Observe directly
+tmux ls                              # See all Codeman sessions
+tmux attach-session -t codeman-myproject  # Observe directly
 ```
 
 ### Running parallel sessions
 
 ```
-# Create multiple sessions in Claudeman dashboard:
+# Create multiple sessions in Codeman dashboard:
 # Session 1: "Implement user authentication" (project A)
 # Session 2: "Write integration tests" (project B)
 # Session 3: "Refactor database layer" (project A)
@@ -410,7 +410,7 @@ When sessions work on the same project, use Agent Mail coordination (`/toolkit:c
 
 ### Multi-agent coordination
 
-When multiple agents work on the same project (e.g., via Claudeman/tmux sessions):
+When multiple agents work on the same project (e.g., via Codeman/tmux sessions):
 
 ```
 # The coordination skill teaches Claude the full protocol:
@@ -490,7 +490,7 @@ Create Beads issues from BMAD stories for dependency tracking and multi-session 
 
 This gives you the best of both: BMAD's structured planning with Beads' dependency graphs, status tracking, and cross-session persistence.
 
-### BMAD + Claudeman
+### BMAD + Codeman
 
 Seed planning first, then let autopilot work through stories overnight:
 
@@ -501,13 +501,13 @@ Seed planning first, then let autopilot work through stories overnight:
 /bmad-bmm-create-epics-and-stories
 
 # 2. Create Beads issues from stories (optional but recommended)
-# 3. Launch a Claudeman session with respawn enabled
+# 3. Launch a Codeman session with respawn enabled
 # 4. Initial prompt: "Run /toolkit:autopilot"
 # 5. Autopilot sees _bmad-output/ artifacts exist →
 #    proceeds to pick tasks and implement with /bmad-bmm-dev-story
 ```
 
-Without planning artifacts, autopilot will stop and suggest running the planning commands first — preventing Claudeman from jumping into code prematurely.
+Without planning artifacts, autopilot will stop and suggest running the planning commands first — preventing Codeman from jumping into code prematurely.
 
 ### BMAD + multi-agent
 
@@ -563,7 +563,7 @@ Installs just that one tool. Or run `/toolkit-setup` with no arguments for the i
 │ Atlas │ Relay │ Context7 │ Serena │ Beads │ beads-ui │ Agent Mail │  │
 │(plug) │(plug) │ (plugin) │(plugin)│(CLI+P)│  (CLI)   │ (HTTP+MCP) │  │
 │       │       │          │        │       │          │            │  │
-│ ┌─────┴───────┘          │        │       │          │ Claudeman  │  │
+│ ┌─────┴───────┘          │        │       │          │ Codeman  │  │
 │ │ Cross-project          │        │       │          │   (Web)    │  │
 │ │ awareness & routing    │        │       │          │            │  │
 └───────────────────────────────────────────────────────────────────────┘
@@ -584,9 +584,9 @@ Installs just that one tool. Or run `/toolkit-setup` with no arguments for the i
 
 - **Claude Code** CLI (`claude`) installed and authenticated
 - **Python 3.10+** (toolkit scripts are stdlib-only, no pip install needed)
-- **git** (for Beads, Agent Mail, Claudeman installs)
-- **npm** (for beads-ui, Claudeman)
-- **tmux** (for Claudeman)
+- **git** (for Beads, Agent Mail, Codeman installs)
+- **npm** (for beads-ui, Codeman)
+- **tmux** (for Codeman)
 - **uv/uvx** (for Serena, Agent Mail — auto-installed on macOS/Linux if missing)
 
 ## File Locations
@@ -599,7 +599,7 @@ Installs just that one tool. Or run `/toolkit-setup` with no arguments for the i
 | Atlas cache | `~/.claude/atlas/cache/projects/` |
 | Agent Mail server | `~/.mcp_agent_mail/` |
 | Agent Mail data | `~/.mcp_agent_mail_git_mailbox_repo/` |
-| Claudeman | `~/.claudeman/` |
+| Codeman | `~/.codeman/app/` |
 | Serena global config | `~/.serena/serena_config.yml` |
 | Auto-setup marker | `~/.claude/.toolkit-setup-done` |
 
